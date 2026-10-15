@@ -1,6 +1,4 @@
- "use client";
-
-export const instant = false;
+"use client";
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useStore } from "@/contexts/StoreContext";
@@ -679,7 +677,9 @@ export default function AdminKategoriler() {
             <input
               type="text"
               value={form.isim}
-              onChange={(e) => setForm((f) => ({ ...f, isim: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, isim: e.target.value }))
+              }
               placeholder="Örn: Kolyeler"
               autoFocus
               maxLength={50}

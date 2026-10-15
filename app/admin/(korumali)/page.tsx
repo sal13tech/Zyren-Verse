@@ -1,7 +1,5 @@
 "use client";
 
-export const instant = false;
-
 import Link from "next/link";
 import { useMemo } from "react";
 import { useStore } from "@/contexts/StoreContext";
