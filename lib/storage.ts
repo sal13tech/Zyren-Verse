@@ -1,86 +1,91 @@
 import type { Kategori, Urun } from "./types";
 import { SEED_KATEGORILER, SEED_URUNLER } from "./seed";
 
-const URUN_ANAHTARI = "zyren-urunler";
-const KATEGORI_ANAHTARI = "zyren-kategoriler";
-const VERSIYON_ANAHTARI = "zyren-veri-versiyon";
+export type TumVeri = {
+  urunler: Urun[];
+  kategoriler: Kategori[];
+};
 
-const VERSIYON = 1;
-
-function guvenliOku<T>(anahtar: string): T | null {
+/** Sunucudan tüm veriyi çeker. Başarısız olursa seed'e düşer. */
+export async function verileriYukle(): Promise<TumVeri> {
   try {
-    const ham = localStorage.getItem(anahtar);
-    if (!ham) return null;
-    return JSON.parse(ham) as T;
-  } catch {
+    const res = await fetch("/api/veri", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as Partial<TumVeri>;
+    return {
+      urunler: Array.isArray(data.urunler) ? data.urunler : [],
+      kategoriler: Array.isArray(data.kategoriler) ? data.kategoriler : [],
+    };
+  } catch (err) {
+    console.warn("Veri yüklenemedi, seed kullanılıyor:", err);
+    return {
+      urunler: SEED_URUNLER,
+      kategoriler: SEED_KATEGORILER,
+    };
+  }
+}
+
+/* ---------------- Fire-and-forget yazma işlemleri ---------------- */
+
+export function urunEkleApi(urun: Urun): void {
+  fetch("/api/urunler", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(urun),
+  }).catch((err) => console.error("Ürün eklenemedi:", err));
+}
+
+export function urunGuncelleApi(id: string, veri: Partial<Urun>): void {
+  fetch(`/api/urunler/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(veri),
+  }).catch((err) => console.error("Ürün güncellenemedi:", err));
+}
+
+export function urunSilApi(id: string): void {
+  fetch(`/api/urunler/${id}`, { method: "DELETE" }).catch((err) =>
+    console.error("Ürün silinemedi:", err),
+  );
+}
+
+export function kategoriEkleApi(kategori: Kategori): void {
+  fetch("/api/kategoriler", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(kategori),
+  }).catch((err) => console.error("Kategori eklenemedi:", err));
+}
+
+export function kategoriGuncelleApi(
+  id: string,
+  veri: Partial<Kategori>,
+): void {
+  fetch(`/api/kategoriler/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(veri),
+  }).catch((err) => console.error("Kategori güncellenemedi:", err));
+}
+
+export function kategoriSilApi(id: string): void {
+  fetch(`/api/kategoriler/${id}`, { method: "DELETE" }).catch((err) =>
+    console.error("Kategori silinemedi:", err),
+  );
+}
+
+export async function sifirlaApi(): Promise<TumVeri | null> {
+  try {
+    const res = await fetch("/api/sifirla", { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await verileriYukle();
+  } catch (err) {
+    console.error("Sıfırlama başarısız:", err);
     return null;
   }
 }
 
-function guvenliYaz(anahtar: string, deger: unknown): void {
-  try {
-    localStorage.setItem(anahtar, JSON.stringify(deger));
-  } catch (err) {
-    console.warn(`"${anahtar}" kaydedilemedi:`, err);
-  }
-}
-
-function versiyonKontrol(): void {
-  try {
-    const kayitli = localStorage.getItem(VERSIYON_ANAHTARI);
-    if (kayitli !== String(VERSIYON)) {
-      localStorage.removeItem(URUN_ANAHTARI);
-      localStorage.removeItem(KATEGORI_ANAHTARI);
-      localStorage.setItem(VERSIYON_ANAHTARI, String(VERSIYON));
-    }
-  } catch {
-    // sessizce geç
-  }
-}
-
-export function urunleriYukle(): Urun[] {
-  versiyonKontrol();
-  const kayitli = guvenliOku<Urun[]>(URUN_ANAHTARI);
-  if (kayitli && Array.isArray(kayitli) && kayitli.length > 0) {
-    return kayitli;
-  }
-  guvenliYaz(URUN_ANAHTARI, SEED_URUNLER);
-  return SEED_URUNLER;
-}
-
-export function urunleriKaydet(urunler: Urun[]): void {
-  guvenliYaz(URUN_ANAHTARI, urunler);
-}
-
-export function kategorileriYukle(): Kategori[] {
-  versiyonKontrol();
-  const kayitli = guvenliOku<Kategori[]>(KATEGORI_ANAHTARI);
-  if (kayitli && Array.isArray(kayitli) && kayitli.length > 0) {
-    return kayitli.sort((a, b) => a.sira - b.sira);
-  }
-  guvenliYaz(KATEGORI_ANAHTARI, SEED_KATEGORILER);
-  return SEED_KATEGORILER;
-}
-
-export function kategorileriKaydet(kategoriler: Kategori[]): void {
-  guvenliYaz(KATEGORI_ANAHTARI, kategoriler);
-}
-
-export function fabrikaAyarlarinaDon(): {
-  urunler: Urun[];
-  kategoriler: Kategori[];
-} {
-  try {
-    localStorage.removeItem(URUN_ANAHTARI);
-    localStorage.removeItem(KATEGORI_ANAHTARI);
-    localStorage.setItem(VERSIYON_ANAHTARI, String(VERSIYON));
-  } catch {
-    // sessizce geç
-  }
-  guvenliYaz(URUN_ANAHTARI, SEED_URUNLER);
-  guvenliYaz(KATEGORI_ANAHTARI, SEED_KATEGORILER);
-  return { urunler: SEED_URUNLER, kategoriler: SEED_KATEGORILER };
-}
+/* ---------------- Yardımcı ---------------- */
 
 export function yeniId(onek = "id"): string {
   try {

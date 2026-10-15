@@ -13,11 +13,14 @@ import {
 import type { Kategori, StoreContextTipi, Urun } from "@/lib/types";
 
 import {
-  fabrikaAyarlarinaDon,
-  kategorileriKaydet,
-  kategorileriYukle,
-  urunleriKaydet,
-  urunleriYukle,
+  kategoriEkleApi,
+  kategoriGuncelleApi,
+  kategoriSilApi,
+  sifirlaApi,
+  urunEkleApi,
+  urunGuncelleApi,
+  urunSilApi,
+  verileriYukle,
   yeniId,
 } from "@/lib/storage";
 
@@ -28,21 +31,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [kategoriler, setKategoriler] = useState<Kategori[]>([]);
   const [hazir, setHazir] = useState(false);
 
+  /* Sunucudan veri çek */
   useEffect(() => {
-    setUrunler(urunleriYukle());
-    setKategoriler(kategorileriYukle());
-    setHazir(true);
+    (async () => {
+      const veri = await verileriYukle();
+      setUrunler(veri.urunler);
+      setKategoriler(veri.kategoriler);
+      setHazir(true);
+    })();
   }, []);
-
-  useEffect(() => {
-    if (!hazir) return;
-    urunleriKaydet(urunler);
-  }, [urunler, hazir]);
-
-  useEffect(() => {
-    if (!hazir) return;
-    kategorileriKaydet(kategoriler);
-  }, [kategoriler, hazir]);
 
   const urunEkle: StoreContextTipi["urunEkle"] = useCallback((veri) => {
     const yeni: Urun = {
@@ -51,6 +48,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createdAt: Date.now(),
     };
     setUrunler((onceki) => [yeni, ...onceki]);
+    urunEkleApi(yeni);
     return yeni;
   }, []);
 
@@ -59,12 +57,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setUrunler((onceki) =>
         onceki.map((u) => (u.id === id ? { ...u, ...veri } : u)),
       );
+      urunGuncelleApi(id, veri);
     },
     [],
   );
 
   const urunSil: StoreContextTipi["urunSil"] = useCallback((id) => {
     setUrunler((onceki) => onceki.filter((u) => u.id !== id));
+    urunSilApi(id);
   }, []);
 
   const kategoriEkle: StoreContextTipi["kategoriEkle"] = useCallback((veri) => {
@@ -80,6 +80,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return [...onceki, yeni];
     });
 
+    window.setTimeout(() => kategoriEkleApi(yeni), 0);
+
     return yeni;
   }, []);
 
@@ -88,6 +90,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setKategoriler((onceki) =>
         onceki.map((k) => (k.id === id ? { ...k, ...veri } : k)),
       );
+      kategoriGuncelleApi(id, veri);
     },
     [],
   );
@@ -95,6 +98,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const kategoriSil: StoreContextTipi["kategoriSil"] = useCallback((id) => {
     setKategoriler((onceki) => onceki.filter((k) => k.id !== id));
     setUrunler((onceki) => onceki.filter((u) => u.kategoriId !== id));
+    kategoriSilApi(id);
   }, []);
 
   const kategoriBul = useCallback(
@@ -108,9 +112,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const fabrikaAyarlarinaDonCallback = useCallback(() => {
-    const { urunler: yeniU, kategoriler: yeniK } = fabrikaAyarlarinaDon();
-    setUrunler(yeniU);
-    setKategoriler(yeniK);
+    sifirlaApi().then((yeni) => {
+      if (yeni) {
+        setUrunler(yeni.urunler);
+        setKategoriler(yeni.kategoriler);
+      }
+    });
   }, []);
 
   const deger = useMemo<StoreContextTipi>(
