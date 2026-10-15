@@ -9,6 +9,9 @@ import {
 } from "react";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
+import { useStore } from "@/contexts/StoreContext";
+import type { Urun } from "@/lib/types";
+
 /* ----------------------------- FONTLAR ----------------------------- */
 
 const cormorant = Cormorant_Garamond({
@@ -25,90 +28,6 @@ const manrope = Manrope({
   display: "swap",
 });
 
-/* ----------------------------- VERİ ----------------------------- */
-
-type Urun = {
-  id: number;
-  isim: string;
-  kategori: string;
-  fiyat: number;
-  sembol: string;
-  etiket?: string;
-  aciklama: string;
-};
-
-/** Sepet: ürün id → adet eşleşmesi. Aynı ürün ikinci kez eklenince
- *  yeni satır açılmaz, mevcut adet artar. */
-type Sepet = Record<number, number>;
-
-const URUNLER: Urun[] = [
-  {
-    id: 1,
-    isim: "Kuğu Kolye",
-    kategori: "Kolyeler",
-    fiyat: 749,
-    sembol: "🦢",
-    etiket: "ÇOK SEVİLEN",
-    aciklama:
-      "Zarafeti ve sadeliği bir araya getiren, kuğu sembolümüzden ilham alan özel tasarım.",
-  },
-  {
-    id: 2,
-    isim: "Luna Küpe",
-    kategori: "Küpeler",
-    fiyat: 529,
-    sembol: "✧",
-    aciklama: "Ay ışığının zarafetinden ilham alan modern ve sade tasarım.",
-  },
-  {
-    id: 3,
-    isim: "Aurelia Bileklik",
-    kategori: "Bileklikler",
-    fiyat: 619,
-    sembol: "〰",
-    etiket: "YENİ",
-    aciklama:
-      "Minimal çizgileri ve zamansız görünümüyle her stile uyum sağlar.",
-  },
-  {
-    id: 4,
-    isim: "Selene Kolye",
-    kategori: "Kolyeler",
-    fiyat: 679,
-    sembol: "☾",
-    aciklama:
-      "Gökyüzünün büyüsünü modern tasarımla buluşturan zarif bir kolye.",
-  },
-  {
-    id: 5,
-    isim: "Mira Yüzük",
-    kategori: "Yüzükler",
-    fiyat: 459,
-    sembol: "◇",
-    aciklama:
-      "Geometrik detayları ve yalın tasarımıyla zamansız bir tamamlayıcı.",
-  },
-  {
-    id: 6,
-    isim: "Nova Küpe",
-    kategori: "Küpeler",
-    fiyat: 579,
-    sembol: "✦",
-    aciklama:
-      "Yıldızlardan ilham alan modern tasarımıyla stiline ışıltı katar.",
-  },
-];
-
-const KATEGORILER = [
-  "Tümü",
-  "Kolyeler",
-  "Küpeler",
-  "Bileklikler",
-  "Yüzükler",
-] as const;
-
-type Kategori = (typeof KATEGORILER)[number];
-
 /* ----------------------------- YARDIMCILAR ----------------------------- */
 
 const TRY_FORMATTER = new Intl.NumberFormat("tr-TR", {
@@ -122,21 +41,22 @@ const PARA = (fiyat: number) => TRY_FORMATTER.format(fiyat);
 const FAVORI_ANAHTARI = "zyren-favoriler";
 const SEPET_ANAHTARI = "zyren-sepet";
 
-/** localStorage'dan güvenli şekilde sayı dizisi okur (favoriler için). */
-function sayiDizisiOku(anahtar: string): number[] {
+const HEPSI = "hepsi";
+
+type Sepet = Record<string, number>;
+
+function stringDizisiOku(anahtar: string): string[] {
   try {
     const ham = localStorage.getItem(anahtar);
     if (!ham) return [];
     const parsed: unknown = JSON.parse(ham);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is number => typeof x === "number");
+    return parsed.filter((x): x is string => typeof x === "string");
   } catch {
     return [];
   }
 }
 
-/** localStorage'dan güvenli şekilde sepet (id → adet) okur.
- *  Eski sürümdeki dizi formatı gelirse sessizce boş sepete düşer. */
 function sepetOku(anahtar: string): Sepet {
   try {
     const ham = localStorage.getItem(anahtar);
@@ -147,9 +67,8 @@ function sepetOku(anahtar: string): Sepet {
     }
     const sonuc: Sepet = {};
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      const id = Number(k);
-      if (Number.isInteger(id) && typeof v === "number" && v > 0) {
-        sonuc[id] = Math.floor(v);
+      if (typeof v === "number" && v > 0) {
+        sonuc[k] = Math.floor(v);
       }
     }
     return sonuc;
@@ -162,12 +81,19 @@ function sepetOku(anahtar: string): Sepet {
 
 type UrunKartiProps = {
   urun: Urun;
+  kategoriIsmi: string;
   favoriMi: boolean;
-  onFavori: (id: number) => void;
+  onFavori: (id: string) => void;
   onDetay: (urun: Urun) => void;
 };
 
-function UrunKarti({ urun, favoriMi, onFavori, onDetay }: UrunKartiProps) {
+function UrunKarti({
+  urun,
+  kategoriIsmi,
+  favoriMi,
+  onFavori,
+  onDetay,
+}: UrunKartiProps) {
   function klavyeIleAc(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -200,13 +126,24 @@ function UrunKarti({ urun, favoriMi, onFavori, onDetay }: UrunKartiProps) {
           {favoriMi ? "♥" : "♡"}
         </button>
 
-        <span className="urun-sembol" aria-hidden="true">
-          {urun.sembol}
-        </span>
+        {urun.gorselUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="urun-gorsel-img"
+            src={urun.gorselUrl}
+            alt={urun.isim}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="urun-sembol" aria-hidden="true">
+            {urun.sembol}
+          </span>
+        )}
       </div>
 
       <div className="urun-bilgi">
-        <div className="urun-kategori">{urun.kategori}</div>
+        <div className="urun-kategori">{kategoriIsmi}</div>
         <h3>{urun.isim}</h3>
         <p className="urun-aciklama">{urun.aciklama}</p>
 
@@ -232,12 +169,13 @@ function UrunKarti({ urun, favoriMi, onFavori, onDetay }: UrunKartiProps) {
 /* ----------------------------- ANA BİLEŞEN ----------------------------- */
 
 export default function Home() {
+  const { urunler, kategoriler, hazir, kategoriBul } = useStore();
+
   const [sayfa, setSayfa] = useState<"ana" | "urunler">("ana");
-
   const [arama, setArama] = useState("");
-  const [kategori, setKategori] = useState<Kategori>("Tümü");
+  const [kategoriId, setKategoriId] = useState<string>(HEPSI);
 
-  const [favoriler, setFavoriler] = useState<number[]>([]);
+  const [favoriler, setFavoriler] = useState<string[]>([]);
   const [sepet, setSepet] = useState<Sepet>({});
 
   const [menuAcik, setMenuAcik] = useState(false);
@@ -254,14 +192,13 @@ export default function Home() {
   const herhangiBirPanelAcik =
     menuAcik || favorilerAcik || sepetAcik || Boolean(seciliUrun);
 
-  /* ---------- İlk açılışta kayıtlı veriyi yükle ---------- */
+  /* ---------- Sepet / favori kalıcılığı ---------- */
   useEffect(() => {
-    setFavoriler(sayiDizisiOku(FAVORI_ANAHTARI));
+    setFavoriler(stringDizisiOku(FAVORI_ANAHTARI));
     setSepet(sepetOku(SEPET_ANAHTARI));
     setHydrated(true);
   }, []);
 
-  /* ---------- Değişiklikleri localStorage'a yaz ---------- */
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -280,19 +217,17 @@ export default function Home() {
     }
   }, [sepet, hydrated]);
 
-  /* ---------- Panel/modal açıkken arka planı kilitle ---------- */
+  /* ---------- Body scroll kilidi ---------- */
   useEffect(() => {
     if (!herhangiBirPanelAcik) return;
-
     const oncekiOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       document.body.style.overflow = oncekiOverflow;
     };
   }, [herhangiBirPanelAcik]);
 
-  /* ---------- ESC ile her şeyi kapat ---------- */
+  /* ---------- ESC ile kapat ---------- */
   useEffect(() => {
     function escapeIleKapat(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -301,7 +236,6 @@ export default function Home() {
       setSepetAcik(false);
       setSeciliUrun(null);
     }
-
     window.addEventListener("keydown", escapeIleKapat);
     return () => window.removeEventListener("keydown", escapeIleKapat);
   }, []);
@@ -313,40 +247,34 @@ export default function Home() {
     return () => window.clearTimeout(zamanlayici);
   }, [bildirim]);
 
-  /* ---------- Ürün detayı açıldığında kapatma butonuna focus ---------- */
+  /* ---------- Modal açıkken kapatma butonuna focus ---------- */
   useEffect(() => {
-    if (seciliUrun) {
-      detayKapatRef.current?.focus();
-    }
+    if (seciliUrun) detayKapatRef.current?.focus();
   }, [seciliUrun]);
 
   /* ---------- Filtrelenmiş ürünler ---------- */
   const filtrelenmisUrunler = useMemo(() => {
     const q = arama.trim().toLocaleLowerCase("tr-TR");
-
-    return URUNLER.filter((urun) => {
+    return urunler.filter((urun) => {
       const aramayaUyuyor =
         q === "" ||
         urun.isim.toLocaleLowerCase("tr-TR").includes(q) ||
         urun.aciklama.toLocaleLowerCase("tr-TR").includes(q);
-
       const kategoriyeUyuyor =
-        kategori === "Tümü" || urun.kategori === kategori;
-
+        kategoriId === HEPSI || urun.kategoriId === kategoriId;
       return aramayaUyuyor && kategoriyeUyuyor;
     });
-  }, [arama, kategori]);
+  }, [urunler, arama, kategoriId]);
 
   /* ---------- Sepet türetmeleri ---------- */
   const sepettekiUrunler = useMemo(() => {
     return Object.entries(sepet)
-      .map(([idStr, adet]) => {
-        const id = Number(idStr);
-        const urun = URUNLER.find((u) => u.id === id);
+      .map(([id, adet]) => {
+        const urun = urunler.find((u) => u.id === id);
         return urun ? { urun, adet } : null;
       })
       .filter((x): x is { urun: Urun; adet: number } => x !== null);
-  }, [sepet]);
+  }, [sepet, urunler]);
 
   const sepetToplami = useMemo(
     () =>
@@ -357,7 +285,6 @@ export default function Home() {
     [sepettekiUrunler],
   );
 
-  /** Sepetteki toplam adet — header'daki rozet için. */
   const sepetAdetToplami = useMemo(
     () => Object.values(sepet).reduce((t, a) => t + a, 0),
     [sepet],
@@ -379,13 +306,12 @@ export default function Home() {
     setSayfa(yeniSayfa);
     panelleriKapat();
     setArama("");
-    setKategori("Tümü");
+    setKategoriId(HEPSI);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function bolumeGit(id: string) {
     panelleriKapat();
-
     if (sayfa !== "ana") {
       setSayfa("ana");
       window.setTimeout(() => {
@@ -395,7 +321,6 @@ export default function Home() {
       }, 120);
       return;
     }
-
     window.setTimeout(() => {
       document
         .getElementById(id)
@@ -403,35 +328,26 @@ export default function Home() {
     }, 50);
   }
 
-  function kategoriSec(item: Kategori) {
-    setKategori(item);
+  function kategoriSec(id: string) {
+    setKategoriId(id);
     setArama("");
     setSayfa("urunler");
     panelleriKapat();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function favoriDegistir(id: number) {
+  function favoriDegistir(id: string) {
     const zatenFavori = favoriler.includes(id);
-
     setFavoriler((onceki) =>
-      zatenFavori ? onceki.filter((urunId) => urunId !== id) : [...onceki, id],
+      zatenFavori ? onceki.filter((x) => x !== id) : [...onceki, id],
     );
-
     bildirimGoster(
       zatenFavori ? "Favorilerinden kaldırıldı." : "Favorilerine eklendi.",
     );
   }
 
-  /* --- SEPET İŞLEMLERİ --- */
-
-  /** Sepete ekler. Ürün zaten sepetteyse yeni satır açmaz, adedi 1 arttırır. */
-  function sepeteEkle(id: number) {
-    setSepet((onceki) => ({
-      ...onceki,
-      [id]: (onceki[id] ?? 0) + 1,
-    }));
-
+  function sepeteEkle(id: string) {
+    setSepet((onceki) => ({ ...onceki, [id]: (onceki[id] ?? 0) + 1 }));
     const yeniAdet = (sepet[id] ?? 0) + 1;
     bildirimGoster(
       yeniAdet > 1
@@ -440,16 +356,11 @@ export default function Home() {
     );
   }
 
-  /** Adedi 1 arttırır. */
-  function adetArttir(id: number) {
-    setSepet((onceki) => ({
-      ...onceki,
-      [id]: (onceki[id] ?? 0) + 1,
-    }));
+  function adetArttir(id: string) {
+    setSepet((onceki) => ({ ...onceki, [id]: (onceki[id] ?? 0) + 1 }));
   }
 
-  /** Adedi 1 azaltır. 1'den düşecekse ürünü sepetten çıkarır. */
-  function adetAzalt(id: number) {
+  function adetAzalt(id: string) {
     setSepet((onceki) => {
       const mevcut = onceki[id] ?? 0;
       if (mevcut <= 1) {
@@ -460,8 +371,7 @@ export default function Home() {
     });
   }
 
-  /** Ürünü sepetten tamamen kaldırır. */
-  function sepettenSil(id: number) {
+  function sepettenSil(id: string) {
     setSepet((onceki) => {
       const { [id]: _atilan, ...kalan } = onceki;
       return kalan;
@@ -471,53 +381,42 @@ export default function Home() {
 
   /* ----------------------------- GÖRÜNÜM ----------------------------- */
 
-  const urunGridIcerik =
-    filtrelenmisUrunler.length === 0 ? (
-      <div className="bos-sonuc">
-        Aramana uygun ürün bulunamadı. Farklı bir kelime denemeyi dene.
-      </div>
-    ) : (
-      filtrelenmisUrunler.map((urun) => (
-        <UrunKarti
-          key={urun.id}
-          urun={urun}
-          favoriMi={favoriler.includes(urun.id)}
-          onFavori={favoriDegistir}
-          onDetay={setSeciliUrun}
-        />
-      ))
-    );
+  const kategoriFiltreleri = useMemo(
+    () => [
+      { id: HEPSI, isim: "Tümü" },
+      ...kategoriler.map((k) => ({ id: k.id, isim: k.isim })),
+    ],
+    [kategoriler],
+  );
+
+  const urunGridIcerik = !hazir ? (
+    <div className="bos-sonuc">Yükleniyor…</div>
+  ) : filtrelenmisUrunler.length === 0 ? (
+    <div className="bos-sonuc">
+      Aramana uygun ürün bulunamadı. Farklı bir kelime denemeyi dene.
+    </div>
+  ) : (
+    filtrelenmisUrunler.map((urun) => (
+      <UrunKarti
+        key={urun.id}
+        urun={urun}
+        kategoriIsmi={kategoriBul(urun.kategoriId)?.isim ?? "—"}
+        favoriMi={favoriler.includes(urun.id)}
+        onFavori={favoriDegistir}
+        onDetay={setSeciliUrun}
+      />
+    ))
+  );
 
   return (
     <main className={`zyren ${cormorant.variable} ${manrope.variable}`}>
       <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html {
-          scroll-behavior: smooth;
-        }
-
-        body {
-          margin: 0;
-          background: #f5f4f1;
-          color: #171717;
-        }
-
-        button,
-        input,
-        select {
-          font: inherit;
-        }
-
-        button {
-          cursor: pointer;
-        }
-
-        button:focus-visible,
-        input:focus-visible,
-        article:focus-visible {
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; background: #f5f4f1; color: #171717; }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        button:focus-visible, input:focus-visible, article:focus-visible {
           outline: 2px solid #b79b65;
           outline-offset: 4px;
         }
@@ -527,32 +426,16 @@ export default function Home() {
           --gold-dark: #8f733f;
           --text: #171717;
           --muted: #737373;
-          --border: rgba(24, 24, 24, 0.1);
-
           min-height: 100vh;
           overflow-x: clip;
-
           font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
-
           background:
-            radial-gradient(
-              circle at 12% 5%,
-              rgba(213, 198, 169, 0.28),
-              transparent 27%
-            ),
-            radial-gradient(
-              circle at 88% 13%,
-              rgba(215, 221, 224, 0.48),
-              transparent 28%
-            ),
+            radial-gradient(circle at 12% 5%, rgba(213, 198, 169, 0.28), transparent 27%),
+            radial-gradient(circle at 88% 13%, rgba(215, 221, 224, 0.48), transparent 28%),
             linear-gradient(135deg, #f7f6f3 0%, #ffffff 42%, #f0f0ed 100%);
-
           color: var(--text);
         }
-
-        .zyren button {
-          color: inherit;
-        }
+        .zyren button { color: inherit; }
 
         .duyuru {
           position: relative;
@@ -561,7 +444,6 @@ export default function Home() {
           border-bottom: 1px solid rgba(20, 20, 20, 0.07);
           background: rgba(255, 255, 255, 0.56);
           backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
           color: #666;
           text-align: center;
           font-size: 10px;
@@ -580,15 +462,10 @@ export default function Home() {
           border-bottom: 1px solid rgba(25, 25, 25, 0.08);
           background: rgba(255, 255, 255, 0.64);
           backdrop-filter: blur(30px) saturate(140%);
-          -webkit-backdrop-filter: blur(30px) saturate(140%);
           box-shadow: 0 8px 30px rgba(30, 30, 30, 0.04);
         }
 
-        .ikon-grup {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
+        .ikon-grup { display: flex; align-items: center; gap: 8px; }
 
         .ikon-dugme {
           position: relative;
@@ -600,16 +477,10 @@ export default function Home() {
           border: 1px solid rgba(25, 25, 25, 0.08);
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.48);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.85),
-            0 5px 20px rgba(40, 40, 40, 0.04);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 5px 20px rgba(40, 40, 40, 0.04);
           font-size: 19px;
-          transition:
-            transform 0.25s ease,
-            border-color 0.25s ease,
-            background 0.25s ease;
+          transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
         }
-
         .ikon-dugme:hover {
           transform: translateY(-2px);
           border-color: rgba(168, 138, 86, 0.38);
@@ -641,14 +512,11 @@ export default function Home() {
           text-align: center;
           transition: transform 0.25s ease;
         }
-
-        .marka:hover {
-          transform: translateY(-1px);
-        }
+        .marka:hover { transform: translateY(-1px); }
 
         .logo-header {
-          width: 92px;
-          height: 52px;
+          width: 110px;
+          height: 62px;
           object-fit: contain;
           mix-blend-mode: multiply;
           filter: contrast(1.04) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.08));
@@ -663,9 +531,7 @@ export default function Home() {
           letter-spacing: 4px;
         }
 
-        .ust-sag {
-          justify-content: flex-end;
-        }
+        .ust-sag { justify-content: flex-end; }
 
         .hero {
           position: relative;
@@ -677,7 +543,6 @@ export default function Home() {
           text-align: center;
           isolation: isolate;
         }
-
         .hero::before {
           position: absolute;
           z-index: -2;
@@ -686,18 +551,15 @@ export default function Home() {
           width: min(720px, 90vw);
           height: 590px;
           border-radius: 50%;
-          background: radial-gradient(
-            circle,
+          background: radial-gradient(circle,
             rgba(255, 255, 255, 0.96) 0%,
             rgba(255, 255, 255, 0.68) 32%,
             rgba(219, 209, 187, 0.24) 57%,
-            transparent 73%
-          );
+            transparent 73%);
           filter: blur(4px);
           transform: translateX(-50%);
           content: "";
         }
-
         .hero::after {
           position: absolute;
           z-index: -3;
@@ -711,53 +573,42 @@ export default function Home() {
           content: "";
         }
 
-        .hero-icerik {
-          width: 100%;
-          max-width: 950px;
-        }
+        .hero-icerik { width: 100%; max-width: 950px; }
 
         .hero-logo-wrap {
           position: relative;
           display: grid;
           place-items: center;
-          width: min(420px, 80vw);
-          height: 285px;
-          margin: 0 auto 25px;
-          border: 1px solid rgba(255, 255, 255, 0.82);
-          border-radius: 45%;
-          background: linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.72),
-            rgba(255, 255, 255, 0.25)
-          );
+          width: min(360px, 78vw);
+          aspect-ratio: 1 / 1;
+          margin: 0 auto 28px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 50% 45%,
+            #ffffff 0%, #fdfcfa 40%, #f4f1ea 75%, #ece7dc 100%);
           box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, 0.95),
-            inset 0 -25px 50px rgba(150, 150, 150, 0.04),
-            0 35px 80px rgba(40, 40, 40, 0.08);
-          backdrop-filter: blur(25px);
-          -webkit-backdrop-filter: blur(25px);
+            0 30px 70px rgba(40, 40, 40, 0.09),
+            0 0 0 1px rgba(200, 190, 170, 0.18),
+            0 0 0 16px rgba(255, 255, 255, 0.32);
+          overflow: hidden;
         }
-
-        .hero-logo-wrap::before {
+        .hero-logo-wrap::after {
           position: absolute;
-          top: 20px;
-          left: 15%;
-          width: 50%;
-          height: 30px;
+          inset: 14px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.7);
-          filter: blur(14px);
+          border: 1px solid rgba(168, 138, 86, 0.18);
           content: "";
+          pointer-events: none;
         }
 
         .hero-logo {
           position: relative;
           z-index: 1;
-          width: min(310px, 65vw);
+          width: 62%;
           height: auto;
           object-fit: contain;
           mix-blend-mode: multiply;
-          filter: contrast(1.05) drop-shadow(0 15px 20px rgba(0, 0, 0, 0.12));
+          filter: contrast(1.02) drop-shadow(0 12px 22px rgba(0, 0, 0, 0.1));
         }
 
         .ust-etiket {
@@ -801,12 +652,8 @@ export default function Home() {
           font-weight: 700;
           letter-spacing: 1.7px;
           box-shadow: 0 12px 30px rgba(20, 20, 20, 0.12);
-          transition:
-            transform 0.25s ease,
-            background 0.25s ease,
-            box-shadow 0.25s ease;
+          transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
-
         .buton:hover {
           transform: translateY(-3px);
           background: var(--gold-dark);
@@ -818,11 +665,8 @@ export default function Home() {
           border-color: rgba(20, 20, 20, 0.14);
           background: rgba(255, 255, 255, 0.48);
           color: #171717 !important;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.8),
-            0 8px 25px rgba(30, 30, 30, 0.04);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 8px 25px rgba(30, 30, 30, 0.04);
         }
-
         .buton-ikincil:hover {
           border-color: rgba(168, 138, 86, 0.5);
           background: rgba(255, 255, 255, 0.85);
@@ -835,18 +679,13 @@ export default function Home() {
           scroll-margin-top: 90px;
         }
 
-        .bolum-baslik {
-          margin-bottom: 45px;
-          text-align: center;
-        }
-
+        .bolum-baslik { margin-bottom: 45px; text-align: center; }
         .bolum-baslik span {
           color: var(--gold-dark);
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 4px;
         }
-
         .bolum-baslik h2 {
           margin: 12px 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -854,7 +693,6 @@ export default function Home() {
           font-weight: 500;
           letter-spacing: 1px;
         }
-
         .bolum-baslik p {
           color: var(--muted);
           font-size: 13px;
@@ -882,18 +720,10 @@ export default function Home() {
           border: 1px solid rgba(20, 20, 20, 0.09);
           border-radius: 50px;
           background: rgba(255, 255, 255, 0.56);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.8),
-            0 8px 25px rgba(30, 30, 30, 0.035);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 8px 25px rgba(30, 30, 30, 0.035);
           backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
         }
-
-        .arama-alani span {
-          color: #8d8d8d;
-          font-size: 17px;
-        }
-
+        .arama-alani span { color: #8d8d8d; font-size: 17px; }
         .arama-alani input {
           width: 100%;
           min-height: 45px;
@@ -903,16 +733,9 @@ export default function Home() {
           color: #171717;
           font-size: 12px;
         }
+        .arama-alani input::placeholder { color: #999; }
 
-        .arama-alani input::placeholder {
-          color: #999;
-        }
-
-        .kategori-listesi {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-        }
+        .kategori-listesi { display: flex; flex-wrap: wrap; gap: 7px; }
 
         .kategori-buton {
           padding: 10px 15px;
@@ -922,31 +745,21 @@ export default function Home() {
           color: #7c7c7c !important;
           font-size: 11px;
           font-weight: 600;
-          transition:
-            background 0.2s,
-            border-color 0.2s,
-            color 0.2s,
-            transform 0.2s;
+          transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
         }
-
         .kategori-buton:hover {
           transform: translateY(-1px);
           border-color: rgba(168, 138, 86, 0.35);
           background: rgba(255, 255, 255, 0.8);
           color: var(--gold-dark) !important;
         }
-
         .kategori-buton.aktif {
           border-color: #171717;
           background: #171717;
           color: #fff !important;
         }
 
-        .tum-urunler {
-          display: flex;
-          justify-content: center;
-          margin: 0 0 30px;
-        }
+        .tum-urunler { display: flex; justify-content: center; margin: 0 0 30px; }
 
         .urun-sayaci {
           max-width: 1280px;
@@ -971,29 +784,16 @@ export default function Home() {
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.8);
           border-radius: 25px;
-          background: linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.78),
-            rgba(255, 255, 255, 0.43)
-          );
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.95),
-            0 18px 50px rgba(30, 30, 30, 0.055);
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.43));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 18px 50px rgba(30, 30, 30, 0.055);
           backdrop-filter: blur(25px);
-          -webkit-backdrop-filter: blur(25px);
           cursor: pointer;
-          transition:
-            transform 0.3s ease,
-            box-shadow 0.3s ease,
-            border-color 0.3s ease;
+          transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
         }
-
         .urun-kart:hover {
           transform: translateY(-7px);
           border-color: rgba(168, 138, 86, 0.3);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 1),
-            0 28px 65px rgba(30, 30, 30, 0.1);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 28px 65px rgba(30, 30, 30, 0.1);
         }
 
         .urun-gorsel {
@@ -1003,26 +803,20 @@ export default function Home() {
           min-height: 295px;
           overflow: hidden;
           border-bottom: 1px solid rgba(20, 20, 20, 0.06);
-          background: radial-gradient(
-            circle at 50% 45%,
+          background: radial-gradient(circle at 50% 45%,
             rgba(255, 255, 255, 0.96),
             rgba(238, 237, 232, 0.62) 45%,
-            rgba(218, 217, 211, 0.42) 100%
-          );
+            rgba(218, 217, 211, 0.42) 100%);
         }
-
         .urun-gorsel::before {
           position: absolute;
           width: 190px;
           height: 190px;
           border: 1px solid rgba(80, 80, 80, 0.07);
           border-radius: 50%;
-          box-shadow:
-            0 0 0 25px rgba(255, 255, 255, 0.16),
-            0 0 0 50px rgba(255, 255, 255, 0.08);
+          box-shadow: 0 0 0 25px rgba(255, 255, 255, 0.16), 0 0 0 50px rgba(255, 255, 255, 0.08);
           content: "";
         }
-
         .urun-gorsel::after {
           position: absolute;
           top: 20px;
@@ -1041,14 +835,23 @@ export default function Home() {
           color: #444;
           font-size: 78px;
           filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.11));
-          transition:
-            transform 0.35s ease,
-            filter 0.35s ease;
+          transition: transform 0.35s ease, filter 0.35s ease;
         }
 
-        .urun-kart:hover .urun-sembol {
-          transform: scale(1.1) translateY(-3px);
-          filter: drop-shadow(0 17px 18px rgba(0, 0, 0, 0.15));
+        .urun-gorsel-img {
+          position: relative;
+          z-index: 1;
+          max-width: 78%;
+          max-height: 82%;
+          object-fit: contain;
+          border-radius: 12px;
+          filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.12));
+          transition: transform 0.35s ease;
+        }
+
+        .urun-kart:hover .urun-sembol,
+        .urun-kart:hover .urun-gorsel-img {
+          transform: scale(1.06) translateY(-3px);
         }
 
         .urun-etiket {
@@ -1082,24 +885,12 @@ export default function Home() {
           color: #777;
           font-size: 17px;
           backdrop-filter: blur(15px);
-          transition:
-            transform 0.2s ease,
-            background 0.2s ease,
-            color 0.2s ease;
+          transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
         }
+        .favori-kalp:hover { transform: scale(1.08); background: #fff; }
+        .favori-kalp.aktif { color: #b45f72 !important; }
 
-        .favori-kalp:hover {
-          transform: scale(1.08);
-          background: #fff;
-        }
-
-        .favori-kalp.aktif {
-          color: #b45f72 !important;
-        }
-
-        .urun-bilgi {
-          padding: 22px;
-        }
+        .urun-bilgi { padding: 22px; }
 
         .urun-kategori {
           color: var(--gold-dark);
@@ -1135,11 +926,7 @@ export default function Home() {
           border-top: 1px solid rgba(20, 20, 20, 0.07);
         }
 
-        .urun-fiyat {
-          color: #252525;
-          font-size: 14px;
-          font-weight: 700;
-        }
+        .urun-fiyat { color: #252525; font-size: 14px; font-weight: 700; }
 
         .urun-incele {
           border: 0;
@@ -1149,10 +936,7 @@ export default function Home() {
           font-weight: 700;
           letter-spacing: 1px;
         }
-
-        .urun-incele:hover {
-          text-decoration: underline;
-        }
+        .urun-incele:hover { text-decoration: underline; }
 
         .bos-sonuc {
           grid-column: 1 / -1;
@@ -1165,11 +949,7 @@ export default function Home() {
           font-size: 13px;
         }
 
-        .urunler-hero {
-          padding: 90px 5% 55px;
-          text-align: center;
-        }
-
+        .urunler-hero { padding: 90px 5% 55px; text-align: center; }
         .urunler-hero h1 {
           margin: 13px 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1177,7 +957,6 @@ export default function Home() {
           font-weight: 500;
           letter-spacing: 5px;
         }
-
         .urunler-hero p {
           max-width: 540px;
           margin: 0 auto;
@@ -1191,10 +970,7 @@ export default function Home() {
           margin: auto;
           padding-bottom: 60px;
         }
-
-        .urunler-icerik .urun-grid {
-          max-width: none;
-        }
+        .urunler-icerik .urun-grid { max-width: none; }
 
         .hikaye {
           display: grid;
@@ -1213,26 +989,19 @@ export default function Home() {
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.9);
           border-radius: 35px;
-          background: radial-gradient(
-            circle at 50% 45%,
+          background: radial-gradient(circle at 50% 45%,
             rgba(255, 255, 255, 0.95),
-            rgba(222, 220, 213, 0.55)
-          );
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.95),
-            0 30px 70px rgba(30, 30, 30, 0.07);
+            rgba(222, 220, 213, 0.55));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 30px 70px rgba(30, 30, 30, 0.07);
           backdrop-filter: blur(25px);
         }
-
         .hikaye-gorsel::before {
           position: absolute;
           width: 260px;
           height: 260px;
           border: 1px solid rgba(50, 50, 50, 0.08);
           border-radius: 50%;
-          box-shadow:
-            0 0 0 30px rgba(255, 255, 255, 0.18),
-            0 0 0 60px rgba(255, 255, 255, 0.08);
+          box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.18), 0 0 0 60px rgba(255, 255, 255, 0.08);
           content: "";
         }
 
@@ -1245,10 +1014,7 @@ export default function Home() {
           filter: drop-shadow(0 20px 18px rgba(0, 0, 0, 0.1));
         }
 
-        .hikaye-yazi .ust-etiket {
-          font-size: 10px;
-        }
-
+        .hikaye-yazi .ust-etiket { font-size: 10px; }
         .hikaye-yazi h2 {
           margin: 18px 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1256,12 +1022,7 @@ export default function Home() {
           font-weight: 500;
           line-height: 1;
         }
-
-        .hikaye-yazi p {
-          color: #777;
-          font-size: 13px;
-          line-height: 2.1;
-        }
+        .hikaye-yazi p { color: #777; font-size: 13px; line-height: 2.1; }
 
         .ozellikler {
           display: grid;
@@ -1272,64 +1033,31 @@ export default function Home() {
           border: 1px solid rgba(255, 255, 255, 0.8);
           border-radius: 25px;
           background: rgba(255, 255, 255, 0.42);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.9),
-            0 20px 50px rgba(30, 30, 30, 0.04);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 20px 50px rgba(30, 30, 30, 0.04);
           backdrop-filter: blur(22px);
         }
-
-        .ozellik {
-          padding: 35px 25px;
-          text-align: center;
-        }
-
-        .ozellik + .ozellik {
-          border-left: 1px solid rgba(20, 20, 20, 0.08);
-        }
-
-        .ozellik .sembol {
-          color: var(--gold-dark);
-          font-size: 25px;
-        }
-
-        .ozellik h3 {
-          margin: 13px 0 8px;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 1.5px;
-        }
-
-        .ozellik p {
-          margin: 0;
-          color: #858585;
-          font-size: 12px;
-          line-height: 1.8;
-        }
+        .ozellik { padding: 35px 25px; text-align: center; }
+        .ozellik + .ozellik { border-left: 1px solid rgba(20, 20, 20, 0.08); }
+        .ozellik .sembol { color: var(--gold-dark); font-size: 25px; }
+        .ozellik h3 { margin: 13px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; }
+        .ozellik p { margin: 0; color: #858585; font-size: 12px; line-height: 1.8; }
 
         .altbilgi {
           padding: 65px 5% 25px;
           border-top: 1px solid rgba(20, 20, 20, 0.07);
           text-align: center;
         }
-
         .altbilgi-logo {
           width: 100px;
           margin-bottom: 10px;
           mix-blend-mode: multiply;
         }
-
         .altbilgi-marka {
           font-family: var(--font-cormorant), Georgia, serif;
           font-size: 34px;
           letter-spacing: 4px;
         }
-
-        .altbilgi p {
-          color: #858585;
-          font-size: 12px;
-          line-height: 2;
-        }
-
+        .altbilgi p { color: #858585; font-size: 12px; line-height: 2; }
         .altbilgi-linkler {
           display: flex;
           flex-wrap: wrap;
@@ -1337,17 +1065,13 @@ export default function Home() {
           gap: 22px;
           margin: 25px 0;
         }
-
         .altbilgi-linkler button {
           border: 0;
           background: transparent;
           color: #777;
           font-size: 12px;
         }
-
-        .altbilgi-linkler button:hover {
-          color: var(--gold-dark);
-        }
+        .altbilgi-linkler button:hover { color: var(--gold-dark); }
 
         .telif {
           margin-top: 25px;
@@ -1367,7 +1091,6 @@ export default function Home() {
           border: 0;
           background: rgba(20, 20, 20, 0.25);
           backdrop-filter: blur(7px);
-          -webkit-backdrop-filter: blur(7px);
           cursor: default;
         }
 
@@ -1383,17 +1106,11 @@ export default function Home() {
           padding: 25px;
           overflow: hidden;
           border-left: 1px solid rgba(255, 255, 255, 0.8);
-          background: linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.9),
-            rgba(245, 245, 242, 0.82)
-          );
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(245, 245, 242, 0.82));
           box-shadow: -20px 0 70px rgba(30, 30, 30, 0.1);
           backdrop-filter: blur(35px) saturate(140%);
-          -webkit-backdrop-filter: blur(35px) saturate(140%);
           animation: panelAc 0.28s ease;
         }
-
         .menu-panel {
           right: auto;
           left: 0;
@@ -1401,16 +1118,9 @@ export default function Home() {
           border-left: 0;
           box-shadow: 20px 0 70px rgba(30, 30, 30, 0.1);
         }
-
         @keyframes panelAc {
-          from {
-            opacity: 0;
-            transform: translateX(25px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(25px); }
+          to { opacity: 1; transform: translateX(0); }
         }
 
         .panel-ust {
@@ -1421,7 +1131,6 @@ export default function Home() {
           padding-bottom: 22px;
           border-bottom: 1px solid rgba(20, 20, 20, 0.08);
         }
-
         .panel-ust h2 {
           margin: 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1436,11 +1145,7 @@ export default function Home() {
           padding: 20px 0;
           overscroll-behavior: contain;
         }
-
-        .panel-icerik::-webkit-scrollbar {
-          width: 4px;
-        }
-
+        .panel-icerik::-webkit-scrollbar { width: 4px; }
         .panel-icerik::-webkit-scrollbar-thumb {
           border-radius: 20px;
           background: rgba(30, 30, 30, 0.15);
@@ -1466,17 +1171,13 @@ export default function Home() {
           text-align: left;
           font-family: var(--font-cormorant), Georgia, serif;
           font-size: 26px;
-          transition:
-            color 0.2s,
-            padding-left 0.2s;
+          transition: color 0.2s, padding-left 0.2s;
         }
-
         .menu-baglantisi span {
           color: var(--gold-dark);
           font-family: var(--font-manrope), system-ui, sans-serif;
           font-size: 13px;
         }
-
         .menu-baglantisi:hover {
           padding-left: 6px;
           color: var(--gold-dark) !important;
@@ -1486,12 +1187,7 @@ export default function Home() {
           padding-top: 20px;
           border-top: 1px solid rgba(20, 20, 20, 0.08);
         }
-
-        .panel-alt .buton {
-          width: 100%;
-        }
-
-        /* ----------------- SEPET SATIRI + ADET KONTROLÜ ----------------- */
+        .panel-alt .buton { width: 100%; }
 
         .sepet-satiri {
           display: grid;
@@ -1500,36 +1196,28 @@ export default function Home() {
           padding: 15px 0;
           border-bottom: 1px solid rgba(20, 20, 20, 0.07);
         }
-
         .sepet-sembol {
           display: grid;
           place-items: center;
           width: 65px;
           height: 70px;
           border-radius: 15px;
-          background: linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.95),
-            rgba(224, 223, 218, 0.55)
-          );
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(224, 223, 218, 0.55));
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
           font-size: 30px;
         }
-
         .sepet-icerik {
           min-width: 0;
           display: flex;
           flex-direction: column;
           gap: 8px;
         }
-
         .sepet-ust {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           gap: 10px;
         }
-
         .sepet-ust h3 {
           margin: 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1540,14 +1228,12 @@ export default function Home() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-
         .sepet-birim-fiyat {
           margin: 0;
           color: #999;
           font-size: 11px;
           font-weight: 600;
         }
-
         .sepet-alt {
           display: flex;
           align-items: center;
@@ -1555,14 +1241,12 @@ export default function Home() {
           gap: 10px;
           margin-top: 2px;
         }
-
         .sepet-satir-toplam {
           color: var(--gold-dark);
           font-size: 13px;
           font-weight: 700;
           white-space: nowrap;
         }
-
         .adet-kontrol {
           display: inline-flex;
           align-items: center;
@@ -1570,7 +1254,6 @@ export default function Home() {
           border-radius: 50px;
           background: rgba(255, 255, 255, 0.65);
         }
-
         .adet-kontrol button {
           width: 28px;
           height: 28px;
@@ -1584,12 +1267,10 @@ export default function Home() {
           border-radius: 50%;
           transition: background 0.2s ease, color 0.2s ease;
         }
-
         .adet-kontrol button:hover {
           background: rgba(168, 138, 86, 0.14);
           color: var(--gold-dark) !important;
         }
-
         .adet-kontrol span {
           min-width: 24px;
           text-align: center;
@@ -1597,7 +1278,6 @@ export default function Home() {
           font-weight: 700;
           color: #171717;
         }
-
         .sil-buton {
           border: 0;
           background: transparent;
@@ -1607,10 +1287,7 @@ export default function Home() {
           padding: 0;
           letter-spacing: 0.3px;
         }
-
-        .sil-buton:hover {
-          text-decoration: underline;
-        }
+        .sil-buton:hover { text-decoration: underline; }
 
         .sepet-toplam {
           display: flex;
@@ -1619,10 +1296,7 @@ export default function Home() {
           margin-bottom: 18px;
           font-size: 13px;
         }
-
-        .sepet-toplam strong {
-          color: var(--gold-dark);
-        }
+        .sepet-toplam strong { color: var(--gold-dark); }
 
         .bos-panel {
           padding: 50px 10px;
@@ -1642,18 +1316,9 @@ export default function Home() {
           padding: 25px;
           background: rgba(30, 30, 30, 0.27);
           backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
           animation: detayArkaAc 0.2s ease;
         }
-
-        @keyframes detayArkaAc {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
+        @keyframes detayArkaAc { from { opacity: 0; } to { opacity: 1; } }
 
         .detay-kart {
           position: relative;
@@ -1663,28 +1328,14 @@ export default function Home() {
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.9);
           border-radius: 30px;
-          background: linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.9),
-            rgba(245, 244, 240, 0.84)
-          );
-          box-shadow:
-            0 40px 100px rgba(20, 20, 20, 0.18),
-            inset 0 1px 0 rgba(255, 255, 255, 0.95);
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(245, 244, 240, 0.84));
+          box-shadow: 0 40px 100px rgba(20, 20, 20, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(35px);
-          -webkit-backdrop-filter: blur(35px);
           animation: detayAc 0.28s ease;
         }
-
         @keyframes detayAc {
-          from {
-            opacity: 0;
-            transform: translateY(15px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(15px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .detay-gorsel {
@@ -1692,37 +1343,34 @@ export default function Home() {
           display: grid;
           place-items: center;
           min-height: 430px;
-          background: radial-gradient(
-            circle,
-            rgba(255, 255, 255, 0.95),
-            rgba(225, 224, 219, 0.6)
-          );
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(225, 224, 219, 0.6));
         }
-
         .detay-gorsel::before {
           position: absolute;
           width: 250px;
           height: 250px;
           border: 1px solid rgba(30, 30, 30, 0.07);
           border-radius: 50%;
-          box-shadow:
-            0 0 0 30px rgba(255, 255, 255, 0.2),
-            0 0 0 60px rgba(255, 255, 255, 0.1);
+          box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.2), 0 0 0 60px rgba(255, 255, 255, 0.1);
           content: "";
         }
-
         .detay-sembol {
           position: relative;
           z-index: 1;
           font-size: 115px;
           filter: drop-shadow(0 25px 20px rgba(0, 0, 0, 0.12));
         }
-
-        .detay-icerik {
-          align-self: center;
-          padding: 45px;
+        .detay-gorsel-img {
+          position: relative;
+          z-index: 1;
+          max-width: 70%;
+          max-height: 70%;
+          object-fit: contain;
+          border-radius: 16px;
+          filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.15));
         }
 
+        .detay-icerik { align-self: center; padding: 45px; }
         .detay-icerik h2 {
           margin: 12px 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1730,13 +1378,7 @@ export default function Home() {
           font-weight: 500;
           line-height: 1;
         }
-
-        .detay-icerik p {
-          color: #777;
-          font-size: 13px;
-          line-height: 2;
-        }
-
+        .detay-icerik p { color: #777; font-size: 13px; line-height: 2; }
         .detay-fiyat {
           display: block;
           margin: 26px 0;
@@ -1758,15 +1400,9 @@ export default function Home() {
           background: rgba(255, 255, 255, 0.7);
           font-size: 18px;
           backdrop-filter: blur(12px);
-          transition:
-            transform 0.2s,
-            background 0.2s;
+          transition: transform 0.2s, background 0.2s;
         }
-
-        .detay-kapat:hover {
-          transform: rotate(90deg);
-          background: #fff;
-        }
+        .detay-kapat:hover { transform: rotate(90deg); background: #fff; }
 
         .bildirim {
           position: fixed;
@@ -1783,221 +1419,72 @@ export default function Home() {
           font-weight: 600;
           box-shadow: 0 15px 40px rgba(30, 30, 30, 0.12);
           backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
           animation: bildirimAc 0.25s ease;
         }
-
         @keyframes bildirimAc {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         @media (max-width: 900px) {
-          .urun-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 15px;
-          }
-          .hikaye {
-            gap: 35px;
-          }
-          .detay-gorsel {
-            min-height: 360px;
-          }
+          .urun-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+          .hikaye { gap: 35px; }
+          .detay-gorsel { min-height: 360px; }
         }
 
         @media (max-width: 620px) {
-          .duyuru {
-            padding: 8px 12px;
-            font-size: 9px;
-            letter-spacing: 2px;
-          }
-          .ust-menu {
-            padding: 10px 4%;
-          }
-          .ikon-grup {
-            gap: 4px;
-          }
-          .ikon-dugme {
-            width: 37px;
-            height: 37px;
-            font-size: 17px;
-          }
-          .logo-header {
-            width: 74px;
-            height: 43px;
-          }
-          .marka-kucuk {
-            display: none;
-          }
-          .hero {
-            min-height: 610px;
-            padding: 60px 18px 80px;
-          }
-          .hero-logo-wrap {
-            width: min(350px, 92vw);
-            height: 240px;
-            border-radius: 42%;
-          }
-          .hero-logo {
-            width: min(270px, 72vw);
-          }
-          .hero h1 {
-            font-size: clamp(42px, 12vw, 65px);
-            letter-spacing: 4px;
-          }
-          .hero-aciklama {
-            font-size: 12px;
-          }
-          .bolum {
-            padding: 70px 4%;
-          }
-          .koleksiyon-ust {
-            align-items: stretch;
-          }
-          .arama-alani {
-            max-width: none;
-          }
-          .kategori-listesi {
-            width: 100%;
-          }
-          .kategori-buton {
-            flex: 1;
-            min-width: max-content;
-            padding: 9px 11px;
-            font-size: 10px;
-          }
-          .urun-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 9px;
-          }
-          .urun-gorsel {
-            min-height: 175px;
-          }
-          .urun-gorsel::before {
-            width: 110px;
-            height: 110px;
-          }
-          .urun-sembol {
-            font-size: 55px;
-          }
-          .urun-etiket {
-            top: 7px;
-            left: 7px;
-            padding: 5px 6px;
-            font-size: 8px;
-          }
-          .favori-kalp {
-            top: 7px;
-            right: 7px;
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
-          }
-          .urun-bilgi {
-            padding: 13px;
-          }
-          .urun-bilgi h3 {
-            font-size: 22px;
-          }
-          .urun-aciklama {
-            min-height: 58px;
-            font-size: 11px;
-          }
-          .urun-alt {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 8px;
-          }
-          .urun-fiyat {
-            font-size: 12px;
-          }
-          .urun-incele {
-            font-size: 10px;
-          }
-          .urunler-hero {
-            padding: 65px 5% 40px;
-          }
-          .urunler-hero h1 {
-            font-size: 44px;
-            letter-spacing: 2px;
-          }
-          .urunler-icerik {
-            width: 92%;
-          }
-          .hikaye {
-            grid-template-columns: 1fr;
-            gap: 30px;
-          }
-          .hikaye-gorsel {
-            min-height: 290px;
-          }
-          .hikaye-logo {
-            width: 220px;
-          }
-          .hikaye-yazi h2 {
-            font-size: 45px;
-          }
-          .ozellikler {
-            grid-template-columns: 1fr;
-          }
-          .ozellik + .ozellik {
-            border-top: 1px solid rgba(20, 20, 20, 0.08);
-            border-left: 0;
-          }
-          .yan-panel {
-            width: 100%;
-            padding: 20px;
-          }
-          .detay-arka {
-            padding: 14px;
-          }
-          .detay-kart {
-            grid-template-columns: 1fr;
-            max-width: 450px;
-            border-radius: 24px;
-          }
-          .detay-gorsel {
-            min-height: 240px;
-          }
-          .detay-sembol {
-            font-size: 75px;
-          }
-          .detay-icerik {
-            padding: 25px;
-          }
-          .detay-icerik h2 {
-            font-size: 38px;
-          }
-          .bildirim {
-            right: 12px;
-            bottom: 12px;
-            max-width: calc(100% - 24px);
-            padding: 13px 17px;
-          }
-          .sepet-satiri {
-            grid-template-columns: 55px minmax(0, 1fr);
-            gap: 10px;
-          }
-          .sepet-sembol {
-            width: 55px;
-            height: 60px;
-            font-size: 24px;
-          }
-          .sepet-ust h3 {
-            font-size: 18px;
-          }
+          .duyuru { padding: 8px 12px; font-size: 9px; letter-spacing: 2px; }
+          .ust-menu { padding: 10px 4%; }
+          .ikon-grup { gap: 4px; }
+          .ikon-dugme { width: 37px; height: 37px; font-size: 17px; }
+          .logo-header { width: 88px; height: 50px; }
+          .marka-kucuk { display: none; }
+          .hero { min-height: 610px; padding: 60px 18px 80px; }
+          .hero-logo-wrap { width: min(300px, 82vw); margin-bottom: 22px; }
+          .hero-logo { width: 62%; }
+          .hero h1 { font-size: clamp(42px, 12vw, 65px); letter-spacing: 4px; }
+          .hero-aciklama { font-size: 12px; }
+          .bolum { padding: 70px 4%; }
+          .koleksiyon-ust { align-items: stretch; }
+          .arama-alani { max-width: none; }
+          .kategori-listesi { width: 100%; }
+          .kategori-buton { flex: 1; min-width: max-content; padding: 9px 11px; font-size: 10px; }
+          .urun-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+          .urun-gorsel { min-height: 175px; }
+          .urun-gorsel::before { width: 110px; height: 110px; }
+          .urun-sembol { font-size: 55px; }
+          .urun-etiket { top: 7px; left: 7px; padding: 5px 6px; font-size: 8px; }
+          .favori-kalp { top: 7px; right: 7px; width: 32px; height: 32px; font-size: 14px; }
+          .urun-bilgi { padding: 13px; }
+          .urun-bilgi h3 { font-size: 22px; }
+          .urun-aciklama { min-height: 58px; font-size: 11px; }
+          .urun-alt { align-items: flex-start; flex-direction: column; gap: 8px; }
+          .urun-fiyat { font-size: 12px; }
+          .urun-incele { font-size: 10px; }
+          .urunler-hero { padding: 65px 5% 40px; }
+          .urunler-hero h1 { font-size: 44px; letter-spacing: 2px; }
+          .urunler-icerik { width: 92%; }
+          .hikaye { grid-template-columns: 1fr; gap: 30px; }
+          .hikaye-gorsel { min-height: 290px; }
+          .hikaye-logo { width: 220px; }
+          .hikaye-yazi h2 { font-size: 45px; }
+          .ozellikler { grid-template-columns: 1fr; }
+          .ozellik + .ozellik { border-top: 1px solid rgba(20, 20, 20, 0.08); border-left: 0; }
+          .yan-panel { width: 100%; padding: 20px; }
+          .detay-arka { padding: 14px; }
+          .detay-kart { grid-template-columns: 1fr; max-width: 450px; border-radius: 24px; }
+          .detay-gorsel { min-height: 240px; }
+          .detay-sembol { font-size: 75px; }
+          .detay-icerik { padding: 25px; }
+          .detay-icerik h2 { font-size: 38px; }
+          .bildirim { right: 12px; bottom: 12px; max-width: calc(100% - 24px); padding: 13px 17px; }
+          .sepet-satiri { grid-template-columns: 55px minmax(0, 1fr); gap: 10px; }
+          .sepet-sembol { width: 55px; height: 60px; font-size: 24px; }
+          .sepet-ust h3 { font-size: 18px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          *,
-          *::before,
-          *::after {
+          *, *::before, *::after {
             scroll-behavior: auto !important;
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
@@ -2036,7 +1523,7 @@ export default function Home() {
         >
           <img
             className="logo-header"
-            src="/zyren-logo.png"
+            src="/zyren-logo-transparent.png"
             alt="ZYREN VERSÉ"
             decoding="async"
           />
@@ -2092,7 +1579,7 @@ export default function Home() {
               <div className="hero-logo-wrap">
                 <img
                   className="hero-logo"
-                  src="/zyren-logo.png"
+                  src="/zyren-logo-transparent.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                 />
               </div>
@@ -2115,7 +1602,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* KOLEKSİYON */}
           <section className="bolum" id="koleksiyon">
             <div className="bolum-baslik">
               <span>ÖZENLE SEÇİLDİ</span>
@@ -2138,17 +1624,17 @@ export default function Home() {
               </label>
 
               <div className="kategori-listesi">
-                {KATEGORILER.map((item) => (
+                {kategoriFiltreleri.map((k) => (
                   <button
                     type="button"
-                    key={item}
+                    key={k.id}
                     className={`kategori-buton ${
-                      kategori === item ? "aktif" : ""
+                      kategoriId === k.id ? "aktif" : ""
                     }`}
-                    aria-pressed={kategori === item}
-                    onClick={() => setKategori(item)}
+                    aria-pressed={kategoriId === k.id}
+                    onClick={() => setKategoriId(k.id)}
                   >
-                    {item}
+                    {k.isim}
                   </button>
                 ))}
               </div>
@@ -2168,13 +1654,12 @@ export default function Home() {
             <div className="urun-grid">{urunGridIcerik}</div>
           </section>
 
-          {/* HİKAYE */}
           <section className="bolum" id="hikayemiz">
             <div className="hikaye">
               <div className="hikaye-gorsel">
                 <img
                   className="hikaye-logo"
-                  src="/zyren-logo.png"
+                  src="/zyren-logo-transparent.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                   loading="lazy"
                   decoding="async"
@@ -2183,18 +1668,15 @@ export default function Home() {
 
               <div className="hikaye-yazi">
                 <span className="ust-etiket">BİZİM HİKÂYEMİZ</span>
-
                 <h2>
                   Zarafet,
                   <br />
                   bir duruştur.
                 </h2>
-
                 <p>
                   ZYREN VERSÉ, kişisel tarzın özgünlüğünü ve zamansız tasarımın
                   güzelliğini bir araya getirme fikrinden doğdu.
                 </p>
-
                 <p>
                   Kuğunun zarif siluetinden ilham alan marka kimliğimiz;
                   sadeliği, karakteri ve kendine özgü olmayı temsil ediyor.
@@ -2212,29 +1694,20 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ÖZELLİKLER */}
           <section className="bolum">
             <div className="ozellikler">
               <div className="ozellik">
-                <div className="sembol" aria-hidden="true">
-                  ✧
-                </div>
+                <div className="sembol" aria-hidden="true">✧</div>
                 <h3>ZAMANSIZ TASARIM</h3>
                 <p>Geçici trendlerden bağımsız, kendine özgü çizgiler.</p>
               </div>
-
               <div className="ozellik">
-                <div className="sembol" aria-hidden="true">
-                  ◇
-                </div>
+                <div className="sembol" aria-hidden="true">◇</div>
                 <h3>DETAYLARA ÖZEN</h3>
                 <p>Her parçanın görünümünde sadelik ve uyum.</p>
               </div>
-
               <div className="ozellik">
-                <div className="sembol" aria-hidden="true">
-                  🦢
-                </div>
+                <div className="sembol" aria-hidden="true">🦢</div>
                 <h3>ÖZGÜN KARAKTER</h3>
                 <p>Stilini yansıtan, kişisel bir dokunuş.</p>
               </div>
@@ -2243,7 +1716,6 @@ export default function Home() {
         </>
       ) : (
         <>
-          {/* ÜRÜNLER SAYFASI */}
           <section className="urunler-hero">
             <div className="ust-etiket">ZYREN VERSÉ KOLEKSİYONU</div>
             <h1>Tüm Ürünler</h1>
@@ -2267,17 +1739,17 @@ export default function Home() {
               </label>
 
               <div className="kategori-listesi">
-                {KATEGORILER.map((item) => (
+                {kategoriFiltreleri.map((k) => (
                   <button
                     type="button"
-                    key={item}
+                    key={k.id}
                     className={`kategori-buton ${
-                      kategori === item ? "aktif" : ""
+                      kategoriId === k.id ? "aktif" : ""
                     }`}
-                    aria-pressed={kategori === item}
-                    onClick={() => setKategori(item)}
+                    aria-pressed={kategoriId === k.id}
+                    onClick={() => setKategoriId(k.id)}
                   >
-                    {item}
+                    {k.isim}
                   </button>
                 ))}
               </div>
@@ -2296,14 +1768,13 @@ export default function Home() {
       <footer className="altbilgi" id="iletisim">
         <img
           className="altbilgi-logo"
-          src="/zyren-logo.png"
+          src="/zyren-logo-transparent.png"
           alt="ZYREN VERSÉ"
           loading="lazy"
           decoding="async"
         />
 
         <div className="altbilgi-marka">ZYREN VERSÉ</div>
-
         <p>Timeless elegance. Your own expression.</p>
 
         <div className="altbilgi-linkler">
@@ -2335,7 +1806,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* PANELLER (Menü / Favoriler / Sepet) */}
+      {/* PANELLER */}
       {(menuAcik || favorilerAcik || sepetAcik) && (
         <>
           <button
@@ -2363,7 +1834,6 @@ export default function Home() {
                     ? "Favorilerim"
                     : "Alışveriş Sepetim"}
               </h2>
-
               <button
                 type="button"
                 className="ikon-dugme"
@@ -2374,11 +1844,9 @@ export default function Home() {
               </button>
             </div>
 
-            {/* MENÜ */}
             {menuAcik && (
               <div className="panel-icerik">
                 <div className="menu-grup-etiket">KEŞFET</div>
-
                 <button
                   type="button"
                   className="menu-baglantisi"
@@ -2387,7 +1855,6 @@ export default function Home() {
                   Ana Sayfa
                   <span aria-hidden="true">↗</span>
                 </button>
-
                 <button
                   type="button"
                   className="menu-baglantisi"
@@ -2396,7 +1863,6 @@ export default function Home() {
                   Koleksiyon
                   <span aria-hidden="true">↗</span>
                 </button>
-
                 <button
                   type="button"
                   className="menu-baglantisi"
@@ -2407,30 +1873,27 @@ export default function Home() {
                 </button>
 
                 <div className="menu-grup-etiket">KATEGORİLER</div>
-
-                {KATEGORILER.filter((item) => item !== "Tümü").map((item) => (
+                {kategoriler.map((k) => (
                   <button
                     type="button"
-                    key={item}
+                    key={k.id}
                     className="menu-baglantisi"
-                    onClick={() => kategoriSec(item)}
+                    onClick={() => kategoriSec(k.id)}
                   >
-                    {item}
+                    {k.isim}
                     <span aria-hidden="true">↗</span>
                   </button>
                 ))}
-
                 <button
                   type="button"
                   className="menu-baglantisi"
-                  onClick={() => kategoriSec("Tümü")}
+                  onClick={() => kategoriSec(HEPSI)}
                 >
                   Tüm kategoriler
                   <span aria-hidden="true">↗</span>
                 </button>
 
                 <div className="menu-grup-etiket">ZYREN VERSÉ</div>
-
                 <button
                   type="button"
                   className="menu-baglantisi"
@@ -2439,7 +1902,6 @@ export default function Home() {
                   Hikâyemiz
                   <span aria-hidden="true">↗</span>
                 </button>
-
                 <button
                   type="button"
                   className="menu-baglantisi"
@@ -2451,24 +1913,30 @@ export default function Home() {
               </div>
             )}
 
-            {/* FAVORİLER */}
             {favorilerAcik && (
               <div className="panel-icerik">
                 {favoriler.length === 0 ? (
                   <div className="bos-panel">
-                    <div style={{ fontSize: 40 }} aria-hidden="true">
-                      ♡
-                    </div>
+                    <div style={{ fontSize: 40 }} aria-hidden="true">♡</div>
                     Henüz favorilerine ürün eklememişsin.
                   </div>
                 ) : (
-                  URUNLER.filter((urun) => favoriler.includes(urun.id)).map(
-                    (urun) => (
+                  urunler
+                    .filter((u) => favoriler.includes(u.id))
+                    .map((urun) => (
                       <div className="sepet-satiri" key={urun.id}>
                         <div className="sepet-sembol" aria-hidden="true">
-                          {urun.sembol}
+                          {urun.gorselUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={urun.gorselUrl}
+                              alt=""
+                              style={{ width: "80%", height: "80%", objectFit: "contain" }}
+                            />
+                          ) : (
+                            urun.sembol
+                          )}
                         </div>
-
                         <div className="sepet-icerik">
                           <div className="sepet-ust">
                             <h3>{urun.isim}</h3>
@@ -2481,33 +1949,36 @@ export default function Home() {
                               Kaldır
                             </button>
                           </div>
-                          <p className="sepet-birim-fiyat">
-                            {PARA(urun.fiyat)}
-                          </p>
+                          <p className="sepet-birim-fiyat">{PARA(urun.fiyat)}</p>
                         </div>
                       </div>
-                    ),
-                  )
+                    ))
                 )}
               </div>
             )}
 
-            {/* SEPET */}
             {sepetAcik && (
               <>
                 <div className="panel-icerik">
                   {sepettekiUrunler.length === 0 ? (
                     <div className="bos-panel">
-                      <div style={{ fontSize: 40 }} aria-hidden="true">
-                        🛒
-                      </div>
+                      <div style={{ fontSize: 40 }} aria-hidden="true">🛒</div>
                       Sepetin şimdilik boş.
                     </div>
                   ) : (
                     sepettekiUrunler.map(({ urun, adet }) => (
                       <div className="sepet-satiri" key={urun.id}>
                         <div className="sepet-sembol" aria-hidden="true">
-                          {urun.sembol}
+                          {urun.gorselUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={urun.gorselUrl}
+                              alt=""
+                              style={{ width: "80%", height: "80%", objectFit: "contain" }}
+                            />
+                          ) : (
+                            urun.sembol
+                          )}
                         </div>
 
                         <div className="sepet-icerik">
@@ -2522,11 +1993,9 @@ export default function Home() {
                               Sil
                             </button>
                           </div>
-
                           <p className="sepet-birim-fiyat">
                             {PARA(urun.fiyat)} / adet
                           </p>
-
                           <div className="sepet-alt">
                             <div
                               className="adet-kontrol"
@@ -2549,7 +2018,6 @@ export default function Home() {
                                 +
                               </button>
                             </div>
-
                             <strong className="sepet-satir-toplam">
                               {PARA(urun.fiyat * adet)}
                             </strong>
@@ -2562,12 +2030,9 @@ export default function Home() {
 
                 <div className="panel-alt">
                   <div className="sepet-toplam">
-                    <span>
-                      Toplam ({sepetAdetToplami} ürün)
-                    </span>
+                    <span>Toplam ({sepetAdetToplami} ürün)</span>
                     <strong>{PARA(sepetToplami)}</strong>
                   </div>
-
                   <button
                     type="button"
                     className="buton"
@@ -2580,7 +2045,6 @@ export default function Home() {
                     DEMO ÖDEME
                     <span aria-hidden="true">↗</span>
                   </button>
-
                   <p
                     style={{
                       color: "#888",
@@ -2598,15 +2062,13 @@ export default function Home() {
         </>
       )}
 
-      {/* ÜRÜN DETAY MODALI */}
+      {/* DETAY MODALI */}
       {seciliUrun && (
         <div
           className="detay-arka"
           role="presentation"
           onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setSeciliUrun(null);
-            }
+            if (event.target === event.currentTarget) setSeciliUrun(null);
           }}
         >
           <article
@@ -2626,13 +2088,24 @@ export default function Home() {
             </button>
 
             <div className="detay-gorsel">
-              <span className="detay-sembol" aria-hidden="true">
-                {seciliUrun.sembol}
-              </span>
+              {seciliUrun.gorselUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="detay-gorsel-img"
+                  src={seciliUrun.gorselUrl}
+                  alt={seciliUrun.isim}
+                />
+              ) : (
+                <span className="detay-sembol" aria-hidden="true">
+                  {seciliUrun.sembol}
+                </span>
+              )}
             </div>
 
             <div className="detay-icerik">
-              <span className="urun-kategori">{seciliUrun.kategori}</span>
+              <span className="urun-kategori">
+                {kategoriBul(seciliUrun.kategoriId)?.isim ?? "—"}
+              </span>
               <h2>{seciliUrun.isim}</h2>
               <p>{seciliUrun.aciklama}</p>
               <strong className="detay-fiyat">{PARA(seciliUrun.fiyat)}</strong>
