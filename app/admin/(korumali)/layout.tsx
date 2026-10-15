@@ -358,7 +358,7 @@ export default function AdminKorumaliLayout({
             onClick={() => setMenuAcik(false)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/zyren-logo.png" alt="ZYREN VERSÉ" />
+            <img src="/zyren-logo-transparent.png" alt="ZYREN VERSÉ" />
             <span>YÖNETİM</span>
           </Link>
 
