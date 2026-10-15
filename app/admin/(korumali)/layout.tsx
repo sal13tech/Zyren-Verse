@@ -20,6 +20,7 @@ export default function AdminKorumaliLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [kontrolEdildi, setKontrolEdildi] = useState(false);
+  const [menuAcik, setMenuAcik] = useState(false);
 
   useEffect(() => {
     if (!girisYapildiMi()) {
@@ -29,6 +30,11 @@ export default function AdminKorumaliLayout({
     }
   }, [router]);
 
+  /* Sayfa değişince menüyü kapat */
+  useEffect(() => {
+    setMenuAcik(false);
+  }, [pathname]);
+
   function cikis() {
     cikisYap();
     router.replace("/admin/giris");
@@ -36,18 +42,19 @@ export default function AdminKorumaliLayout({
 
   if (!kontrolEdildi) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          background: "#f5f4f1",
-          color: "#999",
-          fontFamily: "system-ui, sans-serif",
-          fontSize: 13,
-          letterSpacing: 2,
-        }}
-      >
+      <div className="admin-yukleniyor">
+        <style jsx>{`
+          .admin-yukleniyor {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: #f5f4f1;
+            color: #999;
+            font-family: system-ui, sans-serif;
+            font-size: 13px;
+            letter-spacing: 2px;
+          }
+        `}</style>
         YÜKLENİYOR…
       </div>
     );
@@ -57,233 +64,366 @@ export default function AdminKorumaliLayout({
     MENULER.find((m) => m.href === pathname)?.isim ?? "Yönetim";
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "250px 1fr",
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at 15% 5%, rgba(213,198,169,0.18), transparent 25%), radial-gradient(circle at 85% 15%, rgba(215,221,224,0.28), transparent 28%), linear-gradient(135deg, #f7f6f3 0%, #ffffff 45%, #f0f0ed 100%)",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        color: "#171717",
-      }}
-    >
-      <aside
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          padding: "24px 18px",
-          borderRight: "1px solid rgba(20,20,20,0.07)",
-          background: "rgba(255,255,255,0.55)",
-          backdropFilter: "blur(20px) saturate(140%)",
-        }}
-      >
-        <Link
-          href="/admin"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-            paddingBottom: 22,
-            marginBottom: 22,
-            borderBottom: "1px solid rgba(20,20,20,0.07)",
-            textDecoration: "none",
-            color: "inherit",
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/zyren-logo.png"
-            alt="ZYREN VERSÉ"
-            style={{
-              width: 80,
-              height: 54,
-              objectFit: "contain",
-              mixBlendMode: "multiply",
-            }}
-          />
-          <span
-            style={{
-              color: "#8f8a82",
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: 4,
-            }}
-          >
-            YÖNETİM
-          </span>
-        </Link>
+    <>
+      <style jsx global>{`
+        * {
+          box-sizing: border-box;
+        }
 
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            flex: 1,
-          }}
-        >
-          <div
-            style={{
-              margin: "14px 0 6px",
-              padding: "0 10px",
-              color: "#a89c8c",
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: 2,
-            }}
-          >
-            MENÜ
-          </div>
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+        }
 
-          {MENULER.map((m) => {
-            const aktif = pathname === m.href;
-            return (
-              <Link
-                key={m.href}
-                href={m.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  background: aktif ? "#171717" : "transparent",
-                  color: aktif ? "#fff" : "#666",
-                  textDecoration: "none",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                <span
-                  style={{ fontSize: 16, lineHeight: 1 }}
-                  aria-hidden="true"
-                >
-                  {m.ikon}
-                </span>
-                {m.isim}
-              </Link>
-            );
-          })}
+        body {
+          background: #f5f4f1;
+          color: #171717;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
 
-          <div
-            style={{
-              margin: "14px 0 6px",
-              padding: "0 10px",
-              color: "#a89c8c",
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: 2,
-            }}
-          >
-            SİTE
-          </div>
+        button {
+          font: inherit;
+          cursor: pointer;
+        }
 
-          <Link
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "11px 14px",
-              borderRadius: 12,
-              color: "#666",
-              textDecoration: "none",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true">
-              🌐
-            </span>
-            Mağazayı Gör
-          </Link>
-        </nav>
+        .admin-kabuk {
+          display: grid;
+          grid-template-columns: 250px 1fr;
+          min-height: 100vh;
+          background:
+            radial-gradient(circle at 15% 5%, rgba(213, 198, 169, 0.18), transparent 25%),
+            radial-gradient(circle at 85% 15%, rgba(215, 221, 224, 0.28), transparent 28%),
+            linear-gradient(135deg, #f7f6f3 0%, #ffffff 45%, #f0f0ed 100%);
+        }
 
+        /* ---------- SIDEBAR ---------- */
+        .admin-sidebar {
+          display: flex;
+          flex-direction: column;
+          padding: 24px 18px;
+          border-right: 1px solid rgba(20, 20, 20, 0.07);
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(20px) saturate(140%);
+          -webkit-backdrop-filter: blur(20px) saturate(140%);
+        }
+
+        .admin-marka {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding-bottom: 22px;
+          margin-bottom: 22px;
+          border-bottom: 1px solid rgba(20, 20, 20, 0.07);
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .admin-marka img {
+          width: 80px;
+          height: 54px;
+          object-fit: contain;
+          mix-blend-mode: multiply;
+        }
+
+        .admin-marka span {
+          color: #8f8a82;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 4px;
+        }
+
+        .admin-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+        }
+
+        .admin-grup-baslik {
+          margin: 14px 0 6px;
+          padding: 0 10px;
+          color: #a89c8c;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 2px;
+        }
+
+        .admin-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 11px 14px;
+          border-radius: 12px;
+          color: #666 !important;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+          transition: background 0.2s, color 0.2s;
+        }
+
+        .admin-link:hover {
+          background: rgba(168, 138, 86, 0.1);
+          color: #8f733f !important;
+        }
+
+        .admin-link.aktif {
+          background: #171717;
+          color: #fff !important;
+        }
+
+        .admin-link-ikon {
+          font-size: 16px;
+          line-height: 1;
+        }
+
+        .admin-cikis {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 16px;
+          padding: 11px 14px;
+          border: 1px solid rgba(20, 20, 20, 0.1);
+          border-radius: 12px;
+          background: transparent;
+          color: #a04040;
+          font-size: 12px;
+          font-weight: 600;
+          text-align: left;
+          width: 100%;
+        }
+
+        .admin-cikis:hover {
+          background: rgba(180, 90, 90, 0.08);
+        }
+
+        /* ---------- ANA İÇERİK ---------- */
+        .admin-icerik-alani {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .admin-ust {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 22px 40px;
+          border-bottom: 1px solid rgba(20, 20, 20, 0.07);
+          background: rgba(255, 255, 255, 0.6);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          position: sticky;
+          top: 0;
+          z-index: 20;
+        }
+
+        .admin-ust-sol {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .admin-ust h1 {
+          margin: 0;
+          font-family: Georgia, serif;
+          font-size: 26px;
+          font-weight: 500;
+          letter-spacing: 1px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .admin-ust-link {
+          color: #8f733f !important;
+          text-decoration: none;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 1px;
+          white-space: nowrap;
+        }
+
+        .admin-icerik {
+          flex: 1;
+          padding: 32px 40px 60px;
+          min-width: 0;
+        }
+
+        /* Hamburger — masaüstünde gizli */
+        .admin-hamburger {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border: 1px solid rgba(20, 20, 20, 0.1);
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.8);
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+
+        .admin-overlay {
+          display: none;
+          position: fixed;
+          inset: 0;
+          z-index: 90;
+          border: 0;
+          background: rgba(20, 20, 20, 0.4);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          cursor: default;
+        }
+
+        /* ---------- MOBİL (≤820px) ---------- */
+        @media (max-width: 820px) {
+          .admin-kabuk {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+            width: 280px;
+            max-width: 85vw;
+            height: 100dvh;
+            overflow-y: auto;
+            transform: translateX(-100%);
+            transition: transform 0.28s ease;
+            box-shadow: 20px 0 60px rgba(20, 20, 20, 0.15);
+          }
+
+          .admin-sidebar.acik {
+            transform: translateX(0);
+          }
+
+          .admin-hamburger {
+            display: inline-flex;
+          }
+
+          .admin-overlay.gorunur {
+            display: block;
+          }
+
+          .admin-ust {
+            padding: 14px 16px;
+          }
+
+          .admin-ust h1 {
+            font-size: 18px;
+            letter-spacing: 0.5px;
+          }
+
+          .admin-ust-link {
+            font-size: 11px;
+          }
+
+          .admin-icerik {
+            padding: 20px 16px 60px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .admin-ust h1 {
+            font-size: 16px;
+          }
+
+          .admin-ust-link {
+            display: none;
+          }
+        }
+      `}</style>
+
+      <div className="admin-kabuk">
+        {/* Overlay — sadece mobilde ve menü açıkken */}
         <button
           type="button"
-          onClick={cikis}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            marginTop: 16,
-            padding: "11px 14px",
-            border: "1px solid rgba(20,20,20,0.1)",
-            borderRadius: 12,
-            background: "transparent",
-            color: "#a04040",
-            fontSize: 12,
-            fontWeight: 600,
-            textAlign: "left",
-            cursor: "pointer",
-            width: "100%",
-          }}
-        >
-          <span aria-hidden="true">🚪</span>
-          Çıkış Yap
-        </button>
-      </aside>
+          className={`admin-overlay ${menuAcik ? "gorunur" : ""}`}
+          aria-label="Menüyü kapat"
+          onClick={() => setMenuAcik(false)}
+        />
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "22px 40px",
-            borderBottom: "1px solid rgba(20,20,20,0.07)",
-            background: "rgba(255,255,255,0.5)",
-            backdropFilter: "blur(20px)",
-            position: "sticky",
-            top: 0,
-            zIndex: 20,
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: "Georgia, serif",
-              fontSize: 26,
-              fontWeight: 500,
-              letterSpacing: 1,
-            }}
-          >
-            {aktifBaslik}
-          </h1>
-
+        {/* SIDEBAR */}
+        <aside className={`admin-sidebar ${menuAcik ? "acik" : ""}`}>
           <Link
-            href="/"
-            target="_blank"
-            style={{
-              color: "#8f733f",
-              textDecoration: "none",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
+            href="/admin"
+            className="admin-marka"
+            onClick={() => setMenuAcik(false)}
           >
-            MAĞAZAYI GÖR ↗
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/zyren-logo.png" alt="ZYREN VERSÉ" />
+            <span>YÖNETİM</span>
           </Link>
-        </header>
 
-        <div
-          style={{
-            flex: 1,
-            padding: "32px 40px 60px",
-            minWidth: 0,
-          }}
-        >
-          {children}
+          <nav className="admin-nav">
+            <div className="admin-grup-baslik">MENÜ</div>
+
+            {MENULER.map((m) => {
+              const aktif = pathname === m.href;
+              return (
+                <Link
+                  key={m.href}
+                  href={m.href}
+                  className={`admin-link ${aktif ? "aktif" : ""}`}
+                >
+                  <span className="admin-link-ikon" aria-hidden="true">
+                    {m.ikon}
+                  </span>
+                  {m.isim}
+                </Link>
+              );
+            })}
+
+            <div className="admin-grup-baslik">SİTE</div>
+
+            <Link href="/" className="admin-link">
+              <span className="admin-link-ikon" aria-hidden="true">
+                🌐
+              </span>
+              Mağazayı Gör
+            </Link>
+          </nav>
+
+          <button type="button" className="admin-cikis" onClick={cikis}>
+            <span aria-hidden="true">🚪</span>
+            Çıkış Yap
+          </button>
+        </aside>
+
+        {/* ANA ALAN */}
+        <div className="admin-icerik-alani">
+          <header className="admin-ust">
+            <div className="admin-ust-sol">
+              <button
+                type="button"
+                className="admin-hamburger"
+                aria-label="Menüyü aç"
+                onClick={() => setMenuAcik(true)}
+              >
+                ☰
+              </button>
+              <h1>{aktifBaslik}</h1>
+            </div>
+
+            <Link
+              href="/"
+              target="_blank"
+              className="admin-ust-link"
+            >
+              MAĞAZAYI GÖR ↗
+            </Link>
+          </header>
+
+          <div className="admin-icerik">{children}</div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
