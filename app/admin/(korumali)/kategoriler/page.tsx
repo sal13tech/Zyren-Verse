@@ -1,286 +1,337 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useMemo } from "react";
 import { useStore } from "@/contexts/StoreContext";
-import type { Kategori } from "@/lib/types";
 
-type FormDurum = {
-  acik: boolean;
-  duzenlenenId: string | null;
-  isim: string;
-  sembol: string;
-};
+const TRY_FORMATTER = new Intl.NumberFormat("tr-TR", {
+  style: "currency",
+  currency: "TRY",
+  maximumFractionDigits: 0,
+});
 
-const BOS_FORM: FormDurum = {
-  acik: false,
-  duzenlenenId: null,
-  isim: "",
-  sembol: "",
-};
+const PARA = (n: number) => TRY_FORMATTER.format(n);
 
-export default function AdminKategoriler() {
-  const {
-    kategoriler,
-    kategoriEkle,
-    kategoriGuncelle,
-    kategoriSil,
-    urunleriKategoriyeGore,
-    hazir,
-  } = useStore();
+export default function AdminDashboard() {
+  const { urunler, kategoriler, hazir } = useStore();
 
-  const [form, setForm] = useState<FormDurum>(BOS_FORM);
-  const [formHata, setFormHata] = useState("");
-  const [silinecekId, setSilinecekId] = useState<string | null>(null);
-  const [bildirim, setBildirim] = useState("");
+  const istatistikler = useMemo(() => {
+    const toplamDeger = urunler.reduce((t, u) => t + u.fiyat, 0);
+    const ortalama =
+      urunler.length > 0 ? Math.round(toplamDeger / urunler.length) : 0;
 
-  const siraliKategoriler = useMemo(
-    () => [...kategoriler].sort((a, b) => a.sira - b.sira),
-    [kategoriler],
-  );
-
-  const silinecekKategori = silinecekId
-    ? kategoriler.find((k) => k.id === silinecekId) ?? null
-    : null;
-  const silinecekUrunSayisi = silinecekId
-    ? urunleriKategoriyeGore(silinecekId).length
-    : 0;
-
-  function toast(mesaj: string) {
-    setBildirim(mesaj);
-    window.setTimeout(() => setBildirim(""), 2600);
-  }
-
-  function yeniAc() {
-    setForm({ acik: true, duzenlenenId: null, isim: "", sembol: "" });
-    setFormHata("");
-  }
-
-  function duzenleAc(k: Kategori) {
-    setForm({
-      acik: true,
-      duzenlenenId: k.id,
-      isim: k.isim,
-      sembol: k.sembol ?? "",
-    });
-    setFormHata("");
-  }
-
-  function formKapat() {
-    setForm(BOS_FORM);
-    setFormHata("");
-  }
-
-  function kaydet(e: FormEvent) {
-    e.preventDefault();
-    const isim = form.isim.trim();
-    const sembol = form.sembol.trim();
-
-    if (isim.length < 2) {
-      setFormHata("Kategori adı en az 2 karakter olmalı.");
-      return;
-    }
-    if (isim.length > 50) {
-      setFormHata("Kategori adı 50 karakterden uzun olamaz.");
-      return;
-    }
-
-    const cakisan = kategoriler.find(
-      (k) =>
-        k.id !== form.duzenlenenId &&
-        k.isim.toLocaleLowerCase("tr-TR") === isim.toLocaleLowerCase("tr-TR"),
+    const enPahali = urunler.reduce<(typeof urunler)[number] | null>(
+      (max, u) => (max === null || u.fiyat > max.fiyat ? u : max),
+      null,
     );
-    if (cakisan) {
-      setFormHata("Bu isimde bir kategori zaten var.");
-      return;
-    }
 
-    if (form.duzenlenenId) {
-      kategoriGuncelle(form.duzenlenenId, {
-        isim,
-        sembol: sembol || undefined,
-      });
-      toast("Kategori güncellendi.");
-    } else {
-      kategoriEkle({ isim, sembol: sembol || undefined });
-      toast("Kategori eklendi.");
-    }
-
-    formKapat();
-  }
-
-  function silOnayla() {
-    if (!silinecekId) return;
-    kategoriSil(silinecekId);
-    toast("Kategori silindi.");
-    setSilinecekId(null);
-  }
-
-  function siraDegistir(id: string, yon: "yukari" | "asagi") {
-    const idx = siraliKategoriler.findIndex((k) => k.id === id);
-    if (idx === -1) return;
-
-    const hedefIdx = yon === "yukari" ? idx - 1 : idx + 1;
-    if (hedefIdx < 0 || hedefIdx >= siraliKategoriler.length) return;
-
-    const mevcut = siraliKategoriler[idx];
-    const hedef = siraliKategoriler[hedefIdx];
-
-    kategoriGuncelle(mevcut.id, { sira: hedef.sira });
-    kategoriGuncelle(hedef.id, { sira: mevcut.sira });
-  }
+    return {
+      urunSayisi: urunler.length,
+      kategoriSayisi: kategoriler.length,
+      ortalamaFiyat: ortalama,
+      enPahali,
+    };
+  }, [urunler, kategoriler]);
 
   if (!hazir) {
     return (
-      <div style={{ padding: "60px 20px", textAlign: "center", color: "#999", fontSize: 13, letterSpacing: 2 }}>
-        YÜKLENİYOR…
-      </div>
+      <div className="db-yukleniyor">YÜKLENİYOR…</div>
     );
   }
 
+  const kartlar = [
+    {
+      baslik: "TOPLAM ÜRÜN",
+      ikon: "📦",
+      deger: istatistikler.urunSayisi,
+      alt: "mağazada yayında",
+    },
+    {
+      baslik: "KATEGORİ",
+      ikon: "🗂️",
+      deger: istatistikler.kategoriSayisi,
+      alt: "aktif kategori",
+    },
+    {
+      baslik: "ORTALAMA FİYAT",
+      ikon: "💎",
+      deger: PARA(istatistikler.ortalamaFiyat),
+      alt: "tüm ürünler ortalaması",
+    },
+    {
+      baslik: "EN PAHALI",
+      ikon: "⭐",
+      deger: istatistikler.enPahali?.isim ?? "—",
+      alt: istatistikler.enPahali ? PARA(istatistikler.enPahali.fiyat) : "",
+      kucuk: true,
+    },
+  ];
+
+  const hizliLinkler = [
+    {
+      href: "/admin/urunler",
+      ikon: "📦",
+      baslik: "Ürünleri Yönet",
+      alt: "Ekle, düzenle, sil",
+    },
+    {
+      href: "/admin/kategoriler",
+      ikon: "🗂️",
+      baslik: "Kategorileri Yönet",
+      alt: "Yeni kategori oluştur",
+    },
+    {
+      href: "/admin/ayarlar",
+      ikon: "⚙️",
+      baslik: "Ayarlar",
+      alt: "Yedekle, sıfırla",
+    },
+  ];
+
   return (
     <>
-      {/* ÜST BAŞLIK */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 22 }}>
-        <div>
-          <p style={{ margin: "0 0 4px", color: "#8f8a72", fontSize: 10, fontWeight: 700, letterSpacing: 2 }}>
-            YÖNETİM · KATEGORİLER
-          </p>
-          <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 500 }}>
-            Kategoriler
-          </h2>
-        </div>
+      <style jsx>{`
+        .db-yukleniyor {
+          padding: 60px 20px;
+          text-align: center;
+          color: #999;
+          font-size: 13px;
+          letter-spacing: 2px;
+        }
 
-        <button type="button" onClick={yeniAc} style={{ padding: "12px 22px", border: "1px solid #171717", borderRadius: 50, background: "#171717", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: 1.5, cursor: "pointer" }}>
-          + YENİ KATEGORİ
-        </button>
+        .db-karsilama {
+          padding: 26px 28px;
+          margin-bottom: 26px;
+          border: 1px solid rgba(255, 255, 255, 0.85);
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.5));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 18px 45px rgba(30, 30, 30, 0.05);
+        }
+
+        .db-karsilama h2 {
+          margin: 0 0 8px;
+          font-family: Georgia, serif;
+          font-size: 30px;
+          font-weight: 500;
+          letter-spacing: 1px;
+        }
+
+        .db-karsilama p {
+          margin: 0;
+          color: #7d7d7d;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .db-kartlar {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+
+        .db-kart {
+          padding: 22px;
+          border: 1px solid rgba(255, 255, 255, 0.85);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.6);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 12px 30px rgba(30, 30, 30, 0.04);
+        }
+
+        .db-kart-ust {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+
+        .db-kart-baslik {
+          color: #8f8a82;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 2px;
+        }
+
+        .db-kart-ikon {
+          font-size: 20px;
+          opacity: 0.7;
+        }
+
+        .db-kart-deger {
+          font-family: Georgia, serif;
+          font-size: 32px;
+          font-weight: 500;
+          line-height: 1.1;
+          color: #171717;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .db-kart-deger.kucuk {
+          font-size: 22px;
+        }
+
+        .db-kart-alt {
+          margin-top: 8px;
+          color: #a89c8c;
+          font-size: 11px;
+        }
+
+        .db-bolum-baslik {
+          margin: 0 0 16px;
+          font-family: Georgia, serif;
+          font-size: 20px;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+        }
+
+        .db-hizli {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px;
+        }
+
+        .db-hizli-link {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 18px 20px;
+          border: 1px solid rgba(20, 20, 20, 0.08);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.55);
+          color: #333 !important;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .db-hizli-ikon {
+          font-size: 22px;
+          line-height: 1;
+        }
+
+        .db-hizli-metin {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .db-hizli-metin span {
+          color: #999;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        /* ---------- MOBİL ---------- */
+        @media (max-width: 640px) {
+          .db-karsilama {
+            padding: 20px 18px;
+            margin-bottom: 18px;
+            border-radius: 16px;
+          }
+
+          .db-karsilama h2 {
+            font-size: 22px;
+          }
+
+          .db-karsilama p {
+            font-size: 12px;
+          }
+
+          .db-kartlar {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+          }
+
+          .db-kart {
+            padding: 16px 14px;
+            border-radius: 14px;
+          }
+
+          .db-kart-baslik {
+            font-size: 9px;
+            letter-spacing: 1px;
+          }
+
+          .db-kart-ikon {
+            font-size: 16px;
+          }
+
+          .db-kart-deger {
+            font-size: 22px;
+          }
+
+          .db-kart-deger.kucuk {
+            font-size: 15px;
+          }
+
+          .db-kart-alt {
+            font-size: 10px;
+            margin-top: 4px;
+          }
+
+          .db-bolum-baslik {
+            font-size: 17px;
+            margin-bottom: 12px;
+          }
+
+          .db-hizli {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .db-hizli-link {
+            padding: 14px 16px;
+            font-size: 12px;
+          }
+
+          .db-hizli-ikon {
+            font-size: 20px;
+          }
+        }
+      `}</style>
+
+      <div className="db-karsilama">
+        <h2>Hoş geldin 👋</h2>
+        <p>
+          ZYREN VERSÉ yönetim paneline hoş geldin. Buradan ürünlerini ve
+          kategorilerini yönetebilirsin. Değişiklikler anında mağazada görünür.
+        </p>
       </div>
 
-      {/* LİSTE */}
-      {siraliKategoriler.length === 0 ? (
-        <div style={{ padding: "70px 20px", border: "1px dashed rgba(20,20,20,0.15)", borderRadius: 20, background: "rgba(255,255,255,0.5)", textAlign: "center", color: "#888" }}>
-          <div style={{ fontSize: 42, marginBottom: 12 }}>🗂️</div>
-          <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 600 }}>Henüz kategori yok</p>
-          <p style={{ margin: 0, fontSize: 12 }}>Sağ üstteki butonla ilk kategorini oluştur.</p>
-        </div>
-      ) : (
-        <div style={{ border: "1px solid rgba(255,255,255,0.85)", borderRadius: 18, overflow: "hidden", background: "rgba(255,255,255,0.65)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95), 0 15px 40px rgba(30,30,30,0.05)" }}>
-          {siraliKategoriler.map((k, idx) => {
-            const urunSayisi = urunleriKategoriyeGore(k.id).length;
-            const yukariPasif = idx === 0;
-            const asagiPasif = idx === siraliKategoriler.length - 1;
-
-            return (
-              <div key={k.id} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto auto", alignItems: "center", gap: 16, padding: "16px 22px", borderBottom: idx === siraliKategoriler.length - 1 ? "none" : "1px solid rgba(20,20,20,0.06)" }}>
-                <div style={{ display: "grid", placeItems: "center", width: 48, height: 48, borderRadius: 14, background: "linear-gradient(145deg, #ffffff, #f0eeea)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)", fontSize: 24 }} aria-hidden="true">
-                  {k.sembol ?? "◯"}
-                </div>
-
-                <div style={{ minWidth: 0 }}>
-                  <h3 style={{ margin: "0 0 4px", fontFamily: "Georgia, serif", fontSize: 19, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {k.isim}
-                  </h3>
-                  <p style={{ margin: 0, color: urunSayisi > 0 ? "#8f733f" : "#999", fontSize: 11, fontWeight: 600 }}>
-                    {urunSayisi} ürün
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <button type="button" disabled={yukariPasif} onClick={() => siraDegistir(k.id, "yukari")} aria-label="Yukarı taşı" style={{ width: 28, height: 22, border: "1px solid rgba(20,20,20,0.08)", borderRadius: 6, background: "rgba(255,255,255,0.7)", color: yukariPasif ? "#ccc" : "#666", fontSize: 10, cursor: yukariPasif ? "not-allowed" : "pointer", lineHeight: 1 }}>
-                    ▲
-                  </button>
-                  <button type="button" disabled={asagiPasif} onClick={() => siraDegistir(k.id, "asagi")} aria-label="Aşağı taşı" style={{ width: 28, height: 22, border: "1px solid rgba(20,20,20,0.08)", borderRadius: 6, background: "rgba(255,255,255,0.7)", color: asagiPasif ? "#ccc" : "#666", fontSize: 10, cursor: asagiPasif ? "not-allowed" : "pointer", lineHeight: 1 }}>
-                    ▼
-                  </button>
-                </div>
-
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button type="button" onClick={() => duzenleAc(k)} style={{ padding: "8px 12px", border: "1px solid rgba(20,20,20,0.1)", borderRadius: 10, background: "rgba(255,255,255,0.8)", color: "#444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    ✎ Düzenle
-                  </button>
-                  <button type="button" onClick={() => setSilinecekId(k.id)} style={{ padding: "8px 12px", border: "1px solid rgba(180,90,90,0.25)", borderRadius: 10, background: "rgba(255,245,245,0.7)", color: "#a04040", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    🗑 Sil
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* FORM MODALI */}
-      {form.acik && (
-        <div role="presentation" onClick={(e) => { if (e.target === e.currentTarget) formKapat(); }} style={{ position: "fixed", inset: 0, zIndex: 200, display: "grid", placeItems: "center", padding: 20, background: "rgba(30,30,30,0.35)", backdropFilter: "blur(10px)" }}>
-          <form onSubmit={kaydet} style={{ width: "100%", maxWidth: 460, padding: 30, border: "1px solid rgba(255,255,255,0.9)", borderRadius: 22, background: "rgba(255,255,255,0.95)", boxShadow: "0 40px 90px rgba(20,20,20,0.2)" }}>
-            <h3 style={{ margin: "0 0 22px", fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 500 }}>
-              {form.duzenlenenId ? "Kategoriyi Düzenle" : "Yeni Kategori"}
-            </h3>
-
-            <label style={{ display: "block", marginBottom: 6, color: "#555", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>
-              SEMBOL (EMOJİ)
-            </label>
-            <input type="text" value={form.sembol} onChange={(e) => setForm((f) => ({ ...f, sembol: e.target.value }))} placeholder="📿" maxLength={4} style={{ width: "100%", minHeight: 46, padding: "0 16px", marginBottom: 16, border: "1px solid rgba(20,20,20,0.12)", borderRadius: 12, background: "#fff", fontSize: 20, outline: "none", boxSizing: "border-box" }} />
-
-            <label style={{ display: "block", marginBottom: 6, color: "#555", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>
-              KATEGORİ ADI *
-            </label>
-            <input type="text" value={form.isim} onChange={(e) => setForm((f) => ({ ...f, isim: e.target.value }))} placeholder="Örn: Kolyeler" autoFocus maxLength={50} style={{ width: "100%", minHeight: 46, padding: "0 16px", border: "1px solid rgba(20,20,20,0.12)", borderRadius: 12, background: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-
-            {formHata && (
-              <div style={{ marginTop: 12, padding: "10px 14px", border: "1px solid rgba(180,90,90,0.3)", borderRadius: 10, background: "rgba(255,240,240,0.9)", color: "#a04040", fontSize: 12 }}>
-                {formHata}
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button type="button" onClick={formKapat} style={{ flex: 1, minHeight: 46, border: "1px solid rgba(20,20,20,0.15)", borderRadius: 50, background: "transparent", color: "#444", fontSize: 12, fontWeight: 700, letterSpacing: 1.5, cursor: "pointer" }}>
-                İPTAL
-              </button>
-              <button type="submit" style={{ flex: 1, minHeight: 46, border: "1px solid #171717", borderRadius: 50, background: "#171717", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: 1.5, cursor: "pointer" }}>
-                {form.duzenlenenId ? "GÜNCELLE" : "OLUŞTUR"}
-              </button>
+      <div className="db-kartlar">
+        {kartlar.map((k) => (
+          <div key={k.baslik} className="db-kart">
+            <div className="db-kart-ust">
+              <span className="db-kart-baslik">{k.baslik}</span>
+              <span className="db-kart-ikon" aria-hidden="true">
+                {k.ikon}
+              </span>
             </div>
-          </form>
-        </div>
-      )}
-
-      {/* SİLME ONAY */}
-      {silinecekKategori && (
-        <div role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setSilinecekId(null); }} style={{ position: "fixed", inset: 0, zIndex: 200, display: "grid", placeItems: "center", padding: 20, background: "rgba(30,30,30,0.35)", backdropFilter: "blur(10px)" }}>
-          <div style={{ width: "100%", maxWidth: 420, padding: 30, border: "1px solid rgba(255,255,255,0.9)", borderRadius: 22, background: "rgba(255,255,255,0.95)", boxShadow: "0 40px 90px rgba(20,20,20,0.2)" }}>
-            <div style={{ fontSize: 38, textAlign: "center", marginBottom: 8 }}>⚠️</div>
-            <h3 style={{ margin: "0 0 12px", textAlign: "center", fontFamily: "Georgia, serif", fontSize: 22, fontWeight: 500 }}>
-              Silmek istediğine emin misin?
-            </h3>
-            <p style={{ margin: "0 0 8px", color: "#666", fontSize: 13, textAlign: "center", lineHeight: 1.7 }}>
-              <strong>{silinecekKategori.isim}</strong> kategorisi kalıcı olarak silinecek.
-            </p>
-
-            {silinecekUrunSayisi > 0 && (
-              <div style={{ marginTop: 12, padding: "12px 14px", border: "1px solid rgba(180,90,90,0.3)", borderRadius: 12, background: "rgba(255,240,240,0.9)", color: "#a04040", fontSize: 12, textAlign: "center", lineHeight: 1.6 }}>
-                Bu kategoride <strong>{silinecekUrunSayisi} ürün</strong> var.
-                <br />
-                Kategoriyle birlikte onlar da silinecek.
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button type="button" onClick={() => setSilinecekId(null)} style={{ flex: 1, minHeight: 46, border: "1px solid rgba(20,20,20,0.15)", borderRadius: 50, background: "transparent", color: "#444", fontSize: 12, fontWeight: 700, letterSpacing: 1.5, cursor: "pointer" }}>
-                İPTAL
-              </button>
-              <button type="button" onClick={silOnayla} style={{ flex: 1, minHeight: 46, border: "1px solid #a04040", borderRadius: 50, background: "#a04040", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: 1.5, cursor: "pointer" }}>
-                EVET, SİL
-              </button>
+            <div className={`db-kart-deger${k.kucuk ? " kucuk" : ""}`}>
+              {k.deger}
             </div>
+            <div className="db-kart-alt">{k.alt}</div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* BİLDİRİM */}
-      {bildirim && (
-        <div role="status" aria-live="polite" style={{ position: "fixed", right: 22, bottom: 22, zIndex: 250, padding: "14px 22px", border: "1px solid rgba(168,138,86,0.25)", borderRadius: 50, background: "rgba(255,255,255,0.95)", color: "#303030", fontSize: 12, fontWeight: 600, boxShadow: "0 15px 40px rgba(30,30,30,0.15)" }}>
-          {bildirim}
-        </div>
-      )}
+      <h3 className="db-bolum-baslik">Hızlı Erişim</h3>
+
+      <div className="db-hizli">
+        {hizliLinkler.map((h) => (
+          <Link key={h.href} href={h.href} className="db-hizli-link">
+            <span className="db-hizli-ikon" aria-hidden="true">
+              {h.ikon}
+            </span>
+            <span className="db-hizli-metin">
+              {h.baslik}
+              <span>{h.alt}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </>
   );
 }
