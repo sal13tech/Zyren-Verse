@@ -1,5 +1,7 @@
 "use client";
 
+export const instant = false;
+
 import Link from "next/link";
 import { useMemo } from "react";
 import { useStore } from "@/contexts/StoreContext";
@@ -34,19 +36,7 @@ export default function AdminDashboard() {
   }, [urunler, kategoriler]);
 
   if (!hazir) {
-    return (
-      <div
-        style={{
-          padding: "60px 20px",
-          textAlign: "center",
-          color: "#999",
-          fontSize: 13,
-          letterSpacing: 2,
-        }}
-      >
-        YÜKLENİYOR…
-      </div>
-    );
+    return <div className="db-yukleniyor">YÜKLENİYOR…</div>;
   }
 
   const kartlar = [
@@ -73,6 +63,7 @@ export default function AdminDashboard() {
       ikon: "⭐",
       deger: istatistikler.enPahali?.isim ?? "—",
       alt: istatistikler.enPahali ? PARA(istatistikler.enPahali.fiyat) : "",
+      kucuk: true,
     },
   ];
 
@@ -99,147 +90,251 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div
-        style={{
-          padding: "26px 28px",
-          marginBottom: 26,
-          border: "1px solid rgba(255,255,255,0.85)",
-          borderRadius: 20,
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5))",
-          boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.95), 0 18px 45px rgba(30,30,30,0.05)",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 8px",
-            fontFamily: "Georgia, serif",
-            fontSize: 30,
-            fontWeight: 500,
-            letterSpacing: 1,
-          }}
-        >
-          Hoş geldin 👋
-        </h2>
-        <p
-          style={{
-            margin: 0,
-            color: "#7d7d7d",
-            fontSize: 13,
-            lineHeight: 1.7,
-          }}
-        >
+      <style jsx>{`
+        .db-yukleniyor {
+          padding: 60px 20px;
+          text-align: center;
+          color: #999;
+          font-size: 13px;
+          letter-spacing: 2px;
+        }
+
+        .db-karsilama {
+          padding: 26px 28px;
+          margin-bottom: 26px;
+          border: 1px solid rgba(255, 255, 255, 0.85);
+          border-radius: 20px;
+          background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.78),
+            rgba(255, 255, 255, 0.5)
+          );
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            0 18px 45px rgba(30, 30, 30, 0.05);
+        }
+
+        .db-karsilama h2 {
+          margin: 0 0 8px;
+          font-family: Georgia, serif;
+          font-size: 30px;
+          font-weight: 500;
+          letter-spacing: 1px;
+        }
+
+        .db-karsilama p {
+          margin: 0;
+          color: #7d7d7d;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .db-kartlar {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+
+        .db-kart {
+          padding: 22px;
+          border: 1px solid rgba(255, 255, 255, 0.85);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.6);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            0 12px 30px rgba(30, 30, 30, 0.04);
+        }
+
+        .db-kart-ust {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+
+        .db-kart-baslik {
+          color: #8f8a82;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 2px;
+        }
+
+        .db-kart-ikon {
+          font-size: 20px;
+          opacity: 0.7;
+        }
+
+        .db-kart-deger {
+          font-family: Georgia, serif;
+          font-size: 32px;
+          font-weight: 500;
+          line-height: 1.1;
+          color: #171717;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .db-kart-deger.kucuk {
+          font-size: 22px;
+        }
+
+        .db-kart-alt {
+          margin-top: 8px;
+          color: #a89c8c;
+          font-size: 11px;
+        }
+
+        .db-bolum-baslik {
+          margin: 0 0 16px;
+          font-family: Georgia, serif;
+          font-size: 20px;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+        }
+
+        .db-hizli {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px;
+        }
+
+        .db-hizli-link {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 18px 20px;
+          border: 1px solid rgba(20, 20, 20, 0.08);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.55);
+          color: #333 !important;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .db-hizli-ikon {
+          font-size: 22px;
+          line-height: 1;
+        }
+
+        .db-hizli-metin {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .db-hizli-metin span {
+          color: #999;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        @media (max-width: 640px) {
+          .db-karsilama {
+            padding: 20px 18px;
+            margin-bottom: 18px;
+            border-radius: 16px;
+          }
+
+          .db-karsilama h2 {
+            font-size: 22px;
+          }
+
+          .db-karsilama p {
+            font-size: 12px;
+          }
+
+          .db-kartlar {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+          }
+
+          .db-kart {
+            padding: 16px 14px;
+            border-radius: 14px;
+          }
+
+          .db-kart-baslik {
+            font-size: 9px;
+            letter-spacing: 1px;
+          }
+
+          .db-kart-ikon {
+            font-size: 16px;
+          }
+
+          .db-kart-deger {
+            font-size: 22px;
+          }
+
+          .db-kart-deger.kucuk {
+            font-size: 15px;
+          }
+
+          .db-kart-alt {
+            font-size: 10px;
+            margin-top: 4px;
+          }
+
+          .db-bolum-baslik {
+            font-size: 17px;
+            margin-bottom: 12px;
+          }
+
+          .db-hizli {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .db-hizli-link {
+            padding: 14px 16px;
+            font-size: 12px;
+          }
+
+          .db-hizli-ikon {
+            font-size: 20px;
+          }
+        }
+      `}</style>
+
+      <div className="db-karsilama">
+        <h2>Hoş geldin 👋</h2>
+        <p>
           ZYREN VERSÉ yönetim paneline hoş geldin. Buradan ürünlerini ve
           kategorilerini yönetebilirsin. Değişiklikler anında mağazada görünür.
         </p>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
+      <div className="db-kartlar">
         {kartlar.map((k) => (
-          <div
-            key={k.baslik}
-            style={{
-              padding: 22,
-              border: "1px solid rgba(255,255,255,0.85)",
-              borderRadius: 18,
-              background: "rgba(255,255,255,0.6)",
-              boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 30px rgba(30,30,30,0.04)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <span
-                style={{
-                  color: "#8f8a82",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 2,
-                }}
-              >
-                {k.baslik}
-              </span>
-              <span style={{ fontSize: 20, opacity: 0.7 }} aria-hidden="true">
+          <div key={k.baslik} className="db-kart">
+            <div className="db-kart-ust">
+              <span className="db-kart-baslik">{k.baslik}</span>
+              <span className="db-kart-ikon" aria-hidden="true">
                 {k.ikon}
               </span>
             </div>
-            <div
-              style={{
-                fontFamily: "Georgia, serif",
-                fontSize: k.baslik === "EN PAHALI" ? 22 : 32,
-                fontWeight: 500,
-                lineHeight: 1,
-                color: "#171717",
-              }}
-            >
+            <div className={`db-kart-deger${k.kucuk ? " kucuk" : ""}`}>
               {k.deger}
             </div>
-            <div style={{ marginTop: 8, color: "#a89c8c", fontSize: 11 }}>
-              {k.alt}
-            </div>
+            <div className="db-kart-alt">{k.alt}</div>
           </div>
         ))}
       </div>
 
-      <h3
-        style={{
-          margin: "0 0 16px",
-          fontFamily: "Georgia, serif",
-          fontSize: 20,
-          fontWeight: 500,
-          letterSpacing: 0.5,
-        }}
-      >
-        Hızlı Erişim
-      </h3>
+      <h3 className="db-bolum-baslik">Hızlı Erişim</h3>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 12,
-        }}
-      >
+      <div className="db-hizli">
         {hizliLinkler.map((h) => (
-          <Link
-            key={h.href}
-            href={h.href}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              padding: "18px 20px",
-              border: "1px solid rgba(20,20,20,0.08)",
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.55)",
-              color: "#333",
-              textDecoration: "none",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden="true">
+          <Link key={h.href} href={h.href} className="db-hizli-link">
+            <span className="db-hizli-ikon" aria-hidden="true">
               {h.ikon}
             </span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span className="db-hizli-metin">
               {h.baslik}
-              <span style={{ color: "#999", fontSize: 11, fontWeight: 500 }}>
-                {h.alt}
-              </span>
+              <span>{h.alt}</span>
             </span>
           </Link>
         ))}
