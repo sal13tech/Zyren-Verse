@@ -626,40 +626,24 @@ export default function Home() {
 
         .hero-icerik { width: 100%; max-width: 950px; }
 
+        /* Logoyu saran daire, arka plan ve gölge tamamen kaldırıldı */
         .hero-logo-wrap {
           position: relative;
-          display: grid;
-          place-items: center;
-          width: min(360px, 78vw);
-          aspect-ratio: 1 / 1;
-          margin: 0 auto 28px;
-          border-radius: 50%;
-          background: radial-gradient(circle at 50% 45%,
-            #ffffff 0%, #fdfcfa 40%, #f4f1ea 75%, #ece7dc 100%);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.95),
-            0 30px 70px rgba(40, 40, 40, 0.09),
-            0 0 0 1px rgba(200, 190, 170, 0.18),
-            0 0 0 16px rgba(255, 255, 255, 0.32);
-          overflow: hidden;
-        }
-        .hero-logo-wrap::after {
-          position: absolute;
-          inset: 14px;
-          border-radius: 50%;
-          border: 1px solid rgba(168, 138, 86, 0.18);
-          content: "";
-          pointer-events: none;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: min(450px, 90vw);
+          margin: 0 auto 20px;
         }
 
         .hero-logo {
           position: relative;
           z-index: 1;
-          width: 62%;
+          width: 100%;
           height: auto;
           object-fit: contain;
-          mix-blend-mode: multiply;
-          filter: contrast(1.02) drop-shadow(0 12px 22px rgba(0, 0, 0, 0.1));
+          /* Şeffaf PNG olduğu için mix-blend-mode silindi, sadece hoş bir gölge kaldı */
+          filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.12));
         }
 
         .ust-etiket {
