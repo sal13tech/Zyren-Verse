@@ -167,7 +167,6 @@ function UrunKarti({
           </button>
         </div>
         
-        {/* Hızlı Sepete Ekleme Butonu (YENİ) */}
         <button
           type="button"
           className={`hizli-sepet-btn ${sepetteAdet > 0 ? "sepette" : ""}`}
@@ -271,12 +270,10 @@ export default function Home() {
 
   /* ---------- Veri Türetmeleri ---------- */
   
-  // Ana sayfa vitrini için sadece ilk 6 ürün (en son eklenenler)
   const oneCikanUrunler = useMemo(() => {
     return [...urunler].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   }, [urunler]);
 
-  // Ürünler sayfası için arama ve filtreleme
   const filtrelenmisUrunler = useMemo(() => {
     const q = arama.trim().toLocaleLowerCase("tr-TR");
     return urunler.filter((urun) => {
@@ -290,7 +287,6 @@ export default function Home() {
     });
   }, [urunler, arama, kategoriId]);
 
-  // Sepet hesaplamaları
   const sepettekiUrunler = useMemo(() => {
     return Object.entries(sepet)
       .map(([id, adet]) => {
@@ -314,7 +310,6 @@ export default function Home() {
     [sepet],
   );
 
-  // Modal içindeki "Benzer Ürünler" için
   const benzerUrunler = useMemo(() => {
     if (!seciliUrun) return [];
     return urunler
@@ -414,7 +409,6 @@ export default function Home() {
     bildirimGoster("Ürün sepetten kaldırıldı.");
   }
 
-  // Sepeti tamamen temizle
   function sepetiTemizle() {
     if (window.confirm("Sepetteki tüm ürünler silinecek. Emin misiniz?")) {
       setSepet({});
@@ -422,7 +416,6 @@ export default function Home() {
     }
   }
 
-  // Favorilerdeki her şeyi sepete ekle
   function favorileriSepeteEkle() {
     if (favoriler.length === 0) return;
     setSepet((onceki) => {
@@ -447,7 +440,6 @@ export default function Home() {
     [kategoriler],
   );
 
-  // Tüm Ürünler sayfasındaki Grid
   const urunGridIcerik = !hazir ? (
     <div className="bos-sonuc">Yükleniyor…</div>
   ) : filtrelenmisUrunler.length === 0 ? (
@@ -931,7 +923,6 @@ export default function Home() {
           backdrop-filter: blur(10px);
         }
 
-        /* YENİ Animasyonu */
         .urun-etiket.yeni-parla {
           animation: pulse-gold 2s infinite;
         }
@@ -1010,14 +1001,13 @@ export default function Home() {
         }
         .urun-incele:hover { text-decoration: underline; }
 
-        /* Hızlı Sepet Butonu */
         .hizli-sepet-btn {
           width: 100%;
           padding: 12px;
           border: 1px solid #171717;
           border-radius: 12px;
           background: #171717;
-          color: #fff;
+          color: #fff !important; /* Yazı rengini garantiye al */
           font-size: 11px;
           font-weight: 700;
           letter-spacing: 1px;
@@ -1029,13 +1019,13 @@ export default function Home() {
           transform: translateY(-2px);
         }
         .hizli-sepet-btn.sepette {
-          background: rgba(168, 138, 86, 0.15);
-          border-color: rgba(168, 138, 86, 0.3);
-          color: var(--gold-dark);
+          background: rgba(168, 138, 86, 0.15) !important;
+          border-color: rgba(168, 138, 86, 0.3) !important;
+          color: var(--gold-dark) !important;
         }
         .hizli-sepet-btn.sepette:hover {
-          background: rgba(168, 138, 86, 0.25);
-          color: var(--gold-dark);
+          background: rgba(168, 138, 86, 0.25) !important;
+          color: var(--gold-dark) !important;
           transform: none;
         }
 
@@ -1073,7 +1063,6 @@ export default function Home() {
         }
         .urunler-icerik .urun-grid { max-width: none; }
 
-        /* Hikaye */
         .hikaye {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -1123,7 +1112,6 @@ export default function Home() {
         }
         .hikaye-yazi p { color: #777; font-size: 13px; line-height: 2.1; }
 
-        /* Özellikler */
         .ozellikler {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -1142,7 +1130,6 @@ export default function Home() {
         .ozellik h3 { margin: 13px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; }
         .ozellik p { margin: 0; color: #858585; font-size: 12px; line-height: 1.8; }
 
-        /* Footer */
         .altbilgi {
           padding: 65px 5% 25px;
           border-top: 1px solid rgba(20, 20, 20, 0.07);
@@ -1170,7 +1157,6 @@ export default function Home() {
           line-height: 2;
         }
 
-        /* Paneller */
         .arka-plan {
           position: fixed;
           inset: 0;
@@ -1348,7 +1334,6 @@ export default function Home() {
         }
         .sepet-toplam strong { color: var(--gold-dark); }
 
-        /* Sepeti temizle butonu */
         .sepeti-temizle-btn {
           background: transparent;
           border: 0;
@@ -1367,12 +1352,11 @@ export default function Home() {
           line-height: 2;
         }
 
-        /* Favorileri sepete ekle butonu */
         .favori-hepsini-ekle {
           width: 100%;
           padding: 14px;
           background: #171717;
-          color: #fff;
+          color: #fff !important;
           border-radius: 50px;
           font-size: 12px;
           font-weight: 700;
@@ -1381,7 +1365,6 @@ export default function Home() {
         }
         .favori-hepsini-ekle:hover { background: var(--gold-dark); }
 
-        /* Detay Modalı */
         .detay-arka {
           position: fixed;
           inset: 0;
@@ -1471,7 +1454,6 @@ export default function Home() {
         }
         .detay-kapat:hover { transform: rotate(90deg); background: #fff; }
 
-        /* Benzer Ürünler */
         .benzer-bolum {
           margin-top: 30px;
           border-top: 1px dashed rgba(20, 20, 20, 0.1);
@@ -1561,18 +1543,39 @@ export default function Home() {
           .kategori-listesi { width: 100%; }
           .kategori-buton { flex: 1; min-width: max-content; padding: 10px 14px; font-size: 11px; }
           
-          .urun-grid { grid-template-columns: 1fr; gap: 20px; } /* Mobilde tek sütun daha iyi durur */
-          .urun-kart { flex-direction: row; height: 160px; } /* Yatay kart görünümü */
-          .urun-gorsel { width: 140px; min-height: 100%; border-bottom: none; border-right: 1px solid rgba(20, 20, 20, 0.06); }
-          .urun-gorsel::before { width: 100px; height: 100px; box-shadow: 0 0 0 15px rgba(255,255,255,0.16), 0 0 0 30px rgba(255,255,255,0.08); }
-          .urun-sembol { font-size: 50px; }
-          .urun-bilgi { padding: 14px; flex: 1; justify-content: center; }
-          .urun-bilgi h3 { font-size: 20px; margin: 4px 0; }
-          .urun-aciklama { display: none; } /* Mobilde açıklama gizle, daha temiz */
-          .urun-alt { padding-top: 10px; margin-bottom: 8px; border-top: none; }
-          .hizli-sepet-btn { padding: 10px; font-size: 11px; }
-          .favori-kalp { top: 8px; right: 8px; width: 34px; height: 34px; font-size: 15px; }
-          .urun-etiket { top: 8px; left: 8px; padding: 5px 8px; font-size: 8px; }
+          .urun-grid { grid-template-columns: 1fr; gap: 16px; }
+          .urun-kart { 
+            flex-direction: row; 
+            height: auto; /* Yükseklik sınırı kaldırıldı (siyah şerit sorunu çözümü) */
+            min-height: 150px;
+          } 
+          .urun-gorsel { 
+            width: 130px; 
+            min-height: 100%; 
+            border-bottom: none; 
+            border-right: 1px solid rgba(20, 20, 20, 0.06); 
+            flex-shrink: 0;
+          }
+          .urun-gorsel::before { width: 90px; height: 90px; box-shadow: 0 0 0 15px rgba(255,255,255,0.16), 0 0 0 30px rgba(255,255,255,0.08); }
+          .urun-sembol { font-size: 45px; }
+          
+          .urun-bilgi { padding: 12px; flex: 1; justify-content: center; }
+          .urun-bilgi h3 { font-size: 18px; margin: 4px 0; }
+          .urun-aciklama { display: none; } 
+          
+          .urun-alt { padding-top: 8px; margin-bottom: 8px; border-top: none; }
+          .urun-fiyat { font-size: 13px; }
+          .urun-incele { font-size: 10px; }
+          
+          .hizli-sepet-btn { 
+            padding: 8px; 
+            font-size: 10px; 
+            margin-top: 4px;
+            color: #fff !important; /* Siyah üstüne siyah yazıyı engelle */
+          }
+          
+          .favori-kalp { top: 8px; right: 8px; width: 32px; height: 32px; font-size: 14px; }
+          .urun-etiket { top: 8px; left: 8px; padding: 4px 6px; font-size: 8px; }
 
           .urunler-hero { padding: 50px 5% 30px; }
           .urunler-hero h1 { font-size: 38px; letter-spacing: 2px; }
@@ -1976,7 +1979,6 @@ export default function Home() {
                         </div>
                       </div>
                     ))}
-                    {/* Favorileri Sepete Ekle Butonu */}
                     <button type="button" className="favori-hepsini-ekle" onClick={favorileriSepeteEkle}>
                       TÜMÜNÜ SEPETE EKLE ({favoriler.length})
                     </button>
@@ -2129,7 +2131,6 @@ export default function Home() {
                   : "♡ FAVORİLERE EKLE"}
               </button>
 
-              {/* BENZER ÜRÜNLER (YENİ) */}
               {benzerUrunler.length > 0 && (
                 <div className="benzer-bolum">
                   <div className="benzer-baslik">BUNLARI DA SEVEBİLİRSİN</div>
