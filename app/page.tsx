@@ -83,16 +83,20 @@ type UrunKartiProps = {
   urun: Urun;
   kategoriIsmi: string;
   favoriMi: boolean;
+  sepetteAdet: number;
   onFavori: (id: string) => void;
   onDetay: (urun: Urun) => void;
+  onSepeteEkle: (id: string) => void;
 };
 
 function UrunKarti({
   urun,
   kategoriIsmi,
   favoriMi,
+  sepetteAdet,
   onFavori,
   onDetay,
+  onSepeteEkle,
 }: UrunKartiProps) {
   function klavyeIleAc(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
@@ -111,13 +115,16 @@ function UrunKarti({
       onKeyDown={klavyeIleAc}
     >
       <div className="urun-gorsel">
-        {urun.etiket && <span className="urun-etiket">{urun.etiket}</span>}
+        {urun.etiket && (
+          <span className={`urun-etiket ${urun.etiket === "YENİ" ? "yeni-parla" : ""}`}>
+            {urun.etiket}
+          </span>
+        )}
 
         <button
           type="button"
           className={`favori-kalp ${favoriMi ? "aktif" : ""}`}
           aria-label={favoriMi ? "Favorilerden çıkar" : "Favorilere ekle"}
-          aria-pressed={favoriMi}
           onClick={(event) => {
             event.stopPropagation();
             onFavori(urun.id);
@@ -127,7 +134,6 @@ function UrunKarti({
         </button>
 
         {urun.gorselUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             className="urun-gorsel-img"
             src={urun.gorselUrl}
@@ -149,7 +155,6 @@ function UrunKarti({
 
         <div className="urun-alt">
           <span className="urun-fiyat">{PARA(urun.fiyat)}</span>
-
           <button
             type="button"
             className="urun-incele"
@@ -161,6 +166,18 @@ function UrunKarti({
             DETAYLAR <span aria-hidden="true">↗</span>
           </button>
         </div>
+        
+        {/* Hızlı Sepete Ekleme Butonu (YENİ) */}
+        <button
+          type="button"
+          className={`hizli-sepet-btn ${sepetteAdet > 0 ? "sepette" : ""}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSepeteEkle(urun.id);
+          }}
+        >
+          {sepetteAdet > 0 ? `SEPETTE (${sepetteAdet}) · +1 EKLE` : "HEMEN SEPETE EKLE"}
+        </button>
       </div>
     </article>
   );
@@ -252,7 +269,14 @@ export default function Home() {
     if (seciliUrun) detayKapatRef.current?.focus();
   }, [seciliUrun]);
 
-  /* ---------- Filtrelenmiş ürünler ---------- */
+  /* ---------- Veri Türetmeleri ---------- */
+  
+  // Ana sayfa vitrini için sadece ilk 6 ürün (en son eklenenler)
+  const oneCikanUrunler = useMemo(() => {
+    return [...urunler].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  }, [urunler]);
+
+  // Ürünler sayfası için arama ve filtreleme
   const filtrelenmisUrunler = useMemo(() => {
     const q = arama.trim().toLocaleLowerCase("tr-TR");
     return urunler.filter((urun) => {
@@ -266,7 +290,7 @@ export default function Home() {
     });
   }, [urunler, arama, kategoriId]);
 
-  /* ---------- Sepet türetmeleri ---------- */
+  // Sepet hesaplamaları
   const sepettekiUrunler = useMemo(() => {
     return Object.entries(sepet)
       .map(([id, adet]) => {
@@ -289,6 +313,17 @@ export default function Home() {
     () => Object.values(sepet).reduce((t, a) => t + a, 0),
     [sepet],
   );
+
+  // Modal içindeki "Benzer Ürünler" için
+  const benzerUrunler = useMemo(() => {
+    if (!seciliUrun) return [];
+    return urunler
+      .filter(
+        (u) =>
+          u.kategoriId === seciliUrun.kategoriId && u.id !== seciliUrun.id,
+      )
+      .slice(0, 3);
+  }, [urunler, seciliUrun]);
 
   /* ----------------------------- EYLEMLER ----------------------------- */
 
@@ -379,6 +414,29 @@ export default function Home() {
     bildirimGoster("Ürün sepetten kaldırıldı.");
   }
 
+  // Sepeti tamamen temizle
+  function sepetiTemizle() {
+    if (window.confirm("Sepetteki tüm ürünler silinecek. Emin misiniz?")) {
+      setSepet({});
+      bildirimGoster("Sepet temizlendi.");
+    }
+  }
+
+  // Favorilerdeki her şeyi sepete ekle
+  function favorileriSepeteEkle() {
+    if (favoriler.length === 0) return;
+    setSepet((onceki) => {
+      const yeni = { ...onceki };
+      favoriler.forEach((id) => {
+        yeni[id] = (yeni[id] ?? 0) + 1;
+      });
+      return yeni;
+    });
+    bildirimGoster(`${favoriler.length} favori ürün sepete eklendi.`);
+    setFavorilerAcik(false);
+    setSepetAcik(true);
+  }
+
   /* ----------------------------- GÖRÜNÜM ----------------------------- */
 
   const kategoriFiltreleri = useMemo(
@@ -389,12 +447,11 @@ export default function Home() {
     [kategoriler],
   );
 
+  // Tüm Ürünler sayfasındaki Grid
   const urunGridIcerik = !hazir ? (
     <div className="bos-sonuc">Yükleniyor…</div>
   ) : filtrelenmisUrunler.length === 0 ? (
-    <div className="bos-sonuc">
-      Aramana uygun ürün bulunamadı. Farklı bir kelime denemeyi dene.
-    </div>
+    <div className="bos-sonuc">Aramana uygun ürün bulunamadı.</div>
   ) : (
     filtrelenmisUrunler.map((urun) => (
       <UrunKarti
@@ -402,8 +459,10 @@ export default function Home() {
         urun={urun}
         kategoriIsmi={kategoriBul(urun.kategoriId)?.isim ?? "—"}
         favoriMi={favoriler.includes(urun.id)}
+        sepetteAdet={sepet[urun.id] ?? 0}
         onFavori={favoriDegistir}
         onDetay={setSeciliUrun}
+        onSepeteEkle={sepeteEkle}
       />
     ))
   );
@@ -416,6 +475,7 @@ export default function Home() {
         body { margin: 0; background: #f5f4f1; color: #171717; }
         button, input, select { font: inherit; }
         button { cursor: pointer; }
+        
         button:focus-visible, input:focus-visible, article:focus-visible {
           outline: 2px solid #b79b65;
           outline-offset: 4px;
@@ -466,7 +526,6 @@ export default function Home() {
         }
 
         .ikon-grup { display: flex; align-items: center; gap: 8px; }
-
         .ikon-dugme {
           position: relative;
           display: inline-flex;
@@ -789,6 +848,8 @@ export default function Home() {
           backdrop-filter: blur(25px);
           cursor: pointer;
           transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+          display: flex;
+          flex-direction: column;
         }
         .urun-kart:hover {
           transform: translateY(-7px);
@@ -870,6 +931,16 @@ export default function Home() {
           backdrop-filter: blur(10px);
         }
 
+        /* YENİ Animasyonu */
+        .urun-etiket.yeni-parla {
+          animation: pulse-gold 2s infinite;
+        }
+        @keyframes pulse-gold {
+          0% { box-shadow: 0 0 0 0 rgba(168, 138, 86, 0.4); }
+          70% { box-shadow: 0 0 0 6px rgba(168, 138, 86, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(168, 138, 86, 0); }
+        }
+
         .favori-kalp {
           position: absolute;
           top: 12px;
@@ -890,7 +961,7 @@ export default function Home() {
         .favori-kalp:hover { transform: scale(1.08); background: #fff; }
         .favori-kalp.aktif { color: #b45f72 !important; }
 
-        .urun-bilgi { padding: 22px; }
+        .urun-bilgi { padding: 22px; display: flex; flex-direction: column; flex: 1; }
 
         .urun-kategori {
           color: var(--gold-dark);
@@ -910,10 +981,11 @@ export default function Home() {
 
         .urun-aciklama {
           min-height: 44px;
-          margin: 0;
+          margin: 0 0 18px 0;
           color: #7d7d7d;
           font-size: 12px;
           line-height: 1.8;
+          flex: 1;
         }
 
         .urun-alt {
@@ -921,9 +993,9 @@ export default function Home() {
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          margin-top: 18px;
           padding-top: 16px;
           border-top: 1px solid rgba(20, 20, 20, 0.07);
+          margin-bottom: 12px;
         }
 
         .urun-fiyat { color: #252525; font-size: 14px; font-weight: 700; }
@@ -937,6 +1009,35 @@ export default function Home() {
           letter-spacing: 1px;
         }
         .urun-incele:hover { text-decoration: underline; }
+
+        /* Hızlı Sepet Butonu */
+        .hizli-sepet-btn {
+          width: 100%;
+          padding: 12px;
+          border: 1px solid #171717;
+          border-radius: 12px;
+          background: #171717;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          transition: background 0.2s, transform 0.2s;
+        }
+        .hizli-sepet-btn:hover {
+          background: var(--gold-dark);
+          border-color: var(--gold-dark);
+          transform: translateY(-2px);
+        }
+        .hizli-sepet-btn.sepette {
+          background: rgba(168, 138, 86, 0.15);
+          border-color: rgba(168, 138, 86, 0.3);
+          color: var(--gold-dark);
+        }
+        .hizli-sepet-btn.sepette:hover {
+          background: rgba(168, 138, 86, 0.25);
+          color: var(--gold-dark);
+          transform: none;
+        }
 
         .bos-sonuc {
           grid-column: 1 / -1;
@@ -972,6 +1073,7 @@ export default function Home() {
         }
         .urunler-icerik .urun-grid { max-width: none; }
 
+        /* Hikaye */
         .hikaye {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -980,7 +1082,6 @@ export default function Home() {
           max-width: 1150px;
           margin: auto;
         }
-
         .hikaye-gorsel {
           position: relative;
           display: grid;
@@ -1004,7 +1105,6 @@ export default function Home() {
           box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.18), 0 0 0 60px rgba(255, 255, 255, 0.08);
           content: "";
         }
-
         .hikaye-logo {
           position: relative;
           z-index: 1;
@@ -1013,7 +1113,6 @@ export default function Home() {
           mix-blend-mode: multiply;
           filter: drop-shadow(0 20px 18px rgba(0, 0, 0, 0.1));
         }
-
         .hikaye-yazi .ust-etiket { font-size: 10px; }
         .hikaye-yazi h2 {
           margin: 18px 0;
@@ -1024,6 +1123,7 @@ export default function Home() {
         }
         .hikaye-yazi p { color: #777; font-size: 13px; line-height: 2.1; }
 
+        /* Özellikler */
         .ozellikler {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -1042,21 +1142,14 @@ export default function Home() {
         .ozellik h3 { margin: 13px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; }
         .ozellik p { margin: 0; color: #858585; font-size: 12px; line-height: 1.8; }
 
+        /* Footer */
         .altbilgi {
           padding: 65px 5% 25px;
           border-top: 1px solid rgba(20, 20, 20, 0.07);
           text-align: center;
         }
-        .altbilgi-logo {
-          width: 100px;
-          margin-bottom: 10px;
-          mix-blend-mode: multiply;
-        }
-        .altbilgi-marka {
-          font-family: var(--font-cormorant), Georgia, serif;
-          font-size: 34px;
-          letter-spacing: 4px;
-        }
+        .altbilgi-logo { width: 100px; margin-bottom: 10px; mix-blend-mode: multiply; }
+        .altbilgi-marka { font-family: var(--font-cormorant), Georgia, serif; font-size: 34px; letter-spacing: 4px; }
         .altbilgi p { color: #858585; font-size: 12px; line-height: 2; }
         .altbilgi-linkler {
           display: flex;
@@ -1065,12 +1158,7 @@ export default function Home() {
           gap: 22px;
           margin: 25px 0;
         }
-        .altbilgi-linkler button {
-          border: 0;
-          background: transparent;
-          color: #777;
-          font-size: 12px;
-        }
+        .altbilgi-linkler button { border: 0; background: transparent; color: #777; font-size: 12px; }
         .altbilgi-linkler button:hover { color: var(--gold-dark); }
 
         .telif {
@@ -1082,6 +1170,7 @@ export default function Home() {
           line-height: 2;
         }
 
+        /* Paneller */
         .arka-plan {
           position: fixed;
           inset: 0;
@@ -1146,10 +1235,7 @@ export default function Home() {
           overscroll-behavior: contain;
         }
         .panel-icerik::-webkit-scrollbar { width: 4px; }
-        .panel-icerik::-webkit-scrollbar-thumb {
-          border-radius: 20px;
-          background: rgba(30, 30, 30, 0.15);
-        }
+        .panel-icerik::-webkit-scrollbar-thumb { border-radius: 20px; background: rgba(30, 30, 30, 0.15); }
 
         .menu-grup-etiket {
           margin: 23px 0 10px;
@@ -1178,10 +1264,7 @@ export default function Home() {
           font-family: var(--font-manrope), system-ui, sans-serif;
           font-size: 13px;
         }
-        .menu-baglantisi:hover {
-          padding-left: 6px;
-          color: var(--gold-dark) !important;
-        }
+        .menu-baglantisi:hover { padding-left: 6px; color: var(--gold-dark) !important; }
 
         .panel-alt {
           padding-top: 20px;
@@ -1204,20 +1287,16 @@ export default function Home() {
           border-radius: 15px;
           background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(224, 223, 218, 0.55));
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-          font-size: 30px;
+          font-size: 32px;
         }
-        .sepet-icerik {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+        .sepet-sembol img {
+          width: 80%;
+          height: 80%;
+          object-fit: contain;
         }
-        .sepet-ust {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 10px;
-        }
+
+        .sepet-icerik { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+        .sepet-ust { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
         .sepet-ust h3 {
           margin: 0;
           font-family: var(--font-cormorant), Georgia, serif;
@@ -1228,25 +1307,11 @@ export default function Home() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .sepet-birim-fiyat {
-          margin: 0;
-          color: #999;
-          font-size: 11px;
-          font-weight: 600;
-        }
-        .sepet-alt {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-top: 2px;
-        }
-        .sepet-satir-toplam {
-          color: var(--gold-dark);
-          font-size: 13px;
-          font-weight: 700;
-          white-space: nowrap;
-        }
+        .sepet-birim-fiyat { margin: 0; color: #999; font-size: 11px; font-weight: 600; }
+        .sepet-alt { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+
+        .sepet-satir-toplam { color: var(--gold-dark); font-size: 13px; font-weight: 700; white-space: nowrap; }
+
         .adet-kontrol {
           display: inline-flex;
           align-items: center;
@@ -1267,36 +1332,32 @@ export default function Home() {
           border-radius: 50%;
           transition: background 0.2s ease, color 0.2s ease;
         }
-        .adet-kontrol button:hover {
-          background: rgba(168, 138, 86, 0.14);
-          color: var(--gold-dark) !important;
-        }
-        .adet-kontrol span {
-          min-width: 24px;
-          text-align: center;
-          font-size: 12px;
-          font-weight: 700;
-          color: #171717;
-        }
-        .sil-buton {
-          border: 0;
-          background: transparent;
-          color: #b36c6c !important;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 0;
-          letter-spacing: 0.3px;
-        }
+        .adet-kontrol button:hover { background: rgba(168, 138, 86, 0.14); color: var(--gold-dark) !important; }
+        .adet-kontrol span { min-width: 24px; text-align: center; font-size: 12px; font-weight: 700; color: #171717; }
+
+        .sil-buton { border: 0; background: transparent; color: #b36c6c !important; font-size: 11px; font-weight: 700; padding: 0; letter-spacing: 0.3px; }
         .sil-buton:hover { text-decoration: underline; }
 
         .sepet-toplam {
           display: flex;
           justify-content: space-between;
+          align-items: center;
           gap: 12px;
           margin-bottom: 18px;
           font-size: 13px;
         }
         .sepet-toplam strong { color: var(--gold-dark); }
+
+        /* Sepeti temizle butonu */
+        .sepeti-temizle-btn {
+          background: transparent;
+          border: 0;
+          color: #999;
+          font-size: 11px;
+          text-decoration: underline;
+          cursor: pointer;
+        }
+        .sepeti-temizle-btn:hover { color: #a04040; }
 
         .bos-panel {
           padding: 50px 10px;
@@ -1306,6 +1367,21 @@ export default function Home() {
           line-height: 2;
         }
 
+        /* Favorileri sepete ekle butonu */
+        .favori-hepsini-ekle {
+          width: 100%;
+          padding: 14px;
+          background: #171717;
+          color: #fff;
+          border-radius: 50px;
+          font-size: 12px;
+          font-weight: 700;
+          margin-top: 20px;
+          border: none;
+        }
+        .favori-hepsini-ekle:hover { background: var(--gold-dark); }
+
+        /* Detay Modalı */
         .detay-arka {
           position: fixed;
           inset: 0;
@@ -1324,7 +1400,7 @@ export default function Home() {
           position: relative;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          width: min(900px, 100%);
+          width: min(950px, 100%);
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.9);
           border-radius: 30px;
@@ -1342,7 +1418,8 @@ export default function Home() {
           position: relative;
           display: grid;
           place-items: center;
-          min-height: 430px;
+          min-height: 100%;
+          padding: 40px;
           background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(225, 224, 219, 0.6));
         }
         .detay-gorsel::before {
@@ -1354,17 +1431,12 @@ export default function Home() {
           box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.2), 0 0 0 60px rgba(255, 255, 255, 0.1);
           content: "";
         }
-        .detay-sembol {
-          position: relative;
-          z-index: 1;
-          font-size: 115px;
-          filter: drop-shadow(0 25px 20px rgba(0, 0, 0, 0.12));
-        }
+        .detay-sembol { position: relative; z-index: 1; font-size: 115px; filter: drop-shadow(0 25px 20px rgba(0, 0, 0, 0.12)); }
         .detay-gorsel-img {
           position: relative;
           z-index: 1;
-          max-width: 70%;
-          max-height: 70%;
+          max-width: 100%;
+          max-height: 400px;
           object-fit: contain;
           border-radius: 16px;
           filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.15));
@@ -1379,12 +1451,7 @@ export default function Home() {
           line-height: 1;
         }
         .detay-icerik p { color: #777; font-size: 13px; line-height: 2; }
-        .detay-fiyat {
-          display: block;
-          margin: 26px 0;
-          color: var(--gold-dark);
-          font-size: 21px;
-        }
+        .detay-fiyat { display: block; margin: 26px 0; color: var(--gold-dark); font-size: 21px; }
 
         .detay-kapat {
           position: absolute;
@@ -1403,6 +1470,46 @@ export default function Home() {
           transition: transform 0.2s, background 0.2s;
         }
         .detay-kapat:hover { transform: rotate(90deg); background: #fff; }
+
+        /* Benzer Ürünler */
+        .benzer-bolum {
+          margin-top: 30px;
+          border-top: 1px dashed rgba(20, 20, 20, 0.1);
+          padding-top: 20px;
+        }
+        .benzer-baslik {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          color: #8f8a82;
+          margin-bottom: 12px;
+        }
+        .benzer-grid {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding-bottom: 8px;
+        }
+        .benzer-grid::-webkit-scrollbar { height: 4px; }
+        .benzer-grid::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px;}
+        
+        .benzer-kart {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 12px;
+          border: 1px solid rgba(20, 20, 20, 0.08);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.6);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.2s;
+        }
+        .benzer-kart:hover { background: #fff; }
+        .benzer-sembol { font-size: 20px; }
+        .benzer-sembol img { width: 30px; height: 30px; object-fit: contain; }
+        .benzer-isim { font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .benzer-fiyat { font-size: 10px; color: var(--gold-dark); font-weight: 700;}
 
         .bildirim {
           position: fixed;
@@ -1426,70 +1533,68 @@ export default function Home() {
           to { opacity: 1; transform: translateY(0); }
         }
 
+        /* ---------------- MOBİL UYUM ---------------- */
         @media (max-width: 900px) {
           .urun-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
           .hikaye { gap: 35px; }
-          .detay-gorsel { min-height: 360px; }
+          .detay-kart { grid-template-columns: 1fr; max-width: 500px; }
+          .detay-gorsel { min-height: 300px; padding: 20px; }
         }
 
         @media (max-width: 620px) {
-          .duyuru { padding: 8px 12px; font-size: 9px; letter-spacing: 2px; }
-          .ust-menu { padding: 10px 4%; }
-          .ikon-grup { gap: 4px; }
-          .ikon-dugme { width: 37px; height: 37px; font-size: 17px; }
-          .logo-header { width: 88px; height: 50px; }
+          .duyuru { padding: 10px 12px; font-size: 9px; letter-spacing: 2px; }
+          .ust-menu { padding: 12px 4%; }
+          .ikon-dugme { width: 44px; height: 44px; font-size: 20px; }
+          .logo-header { width: 100px; height: 56px; }
           .marka-kucuk { display: none; }
-          .hero { min-height: 610px; padding: 60px 18px 80px; }
+          
+          .hero { min-height: 550px; padding: 60px 18px 80px; }
           .hero-logo-wrap { width: min(300px, 82vw); margin-bottom: 22px; }
           .hero-logo { width: 62%; }
           .hero h1 { font-size: clamp(42px, 12vw, 65px); letter-spacing: 4px; }
-          .hero-aciklama { font-size: 12px; }
+          .hero-aciklama { font-size: 13px; margin: 20px auto 30px; }
+          
           .bolum { padding: 70px 4%; }
           .koleksiyon-ust { align-items: stretch; }
-          .arama-alani { max-width: none; }
+          .arama-alani { max-width: none; min-height: 48px; }
+          .arama-alani input { font-size: 16px; } /* iOS zoom engelleme */
           .kategori-listesi { width: 100%; }
-          .kategori-buton { flex: 1; min-width: max-content; padding: 9px 11px; font-size: 10px; }
-          .urun-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-          .urun-gorsel { min-height: 175px; }
-          .urun-gorsel::before { width: 110px; height: 110px; }
-          .urun-sembol { font-size: 55px; }
-          .urun-etiket { top: 7px; left: 7px; padding: 5px 6px; font-size: 8px; }
-          .favori-kalp { top: 7px; right: 7px; width: 32px; height: 32px; font-size: 14px; }
-          .urun-bilgi { padding: 13px; }
-          .urun-bilgi h3 { font-size: 22px; }
-          .urun-aciklama { min-height: 58px; font-size: 11px; }
-          .urun-alt { align-items: flex-start; flex-direction: column; gap: 8px; }
-          .urun-fiyat { font-size: 12px; }
-          .urun-incele { font-size: 10px; }
-          .urunler-hero { padding: 65px 5% 40px; }
-          .urunler-hero h1 { font-size: 44px; letter-spacing: 2px; }
+          .kategori-buton { flex: 1; min-width: max-content; padding: 10px 14px; font-size: 11px; }
+          
+          .urun-grid { grid-template-columns: 1fr; gap: 20px; } /* Mobilde tek sütun daha iyi durur */
+          .urun-kart { flex-direction: row; height: 160px; } /* Yatay kart görünümü */
+          .urun-gorsel { width: 140px; min-height: 100%; border-bottom: none; border-right: 1px solid rgba(20, 20, 20, 0.06); }
+          .urun-gorsel::before { width: 100px; height: 100px; box-shadow: 0 0 0 15px rgba(255,255,255,0.16), 0 0 0 30px rgba(255,255,255,0.08); }
+          .urun-sembol { font-size: 50px; }
+          .urun-bilgi { padding: 14px; flex: 1; justify-content: center; }
+          .urun-bilgi h3 { font-size: 20px; margin: 4px 0; }
+          .urun-aciklama { display: none; } /* Mobilde açıklama gizle, daha temiz */
+          .urun-alt { padding-top: 10px; margin-bottom: 8px; border-top: none; }
+          .hizli-sepet-btn { padding: 10px; font-size: 11px; }
+          .favori-kalp { top: 8px; right: 8px; width: 34px; height: 34px; font-size: 15px; }
+          .urun-etiket { top: 8px; left: 8px; padding: 5px 8px; font-size: 8px; }
+
+          .urunler-hero { padding: 50px 5% 30px; }
+          .urunler-hero h1 { font-size: 38px; letter-spacing: 2px; }
           .urunler-icerik { width: 92%; }
+          
           .hikaye { grid-template-columns: 1fr; gap: 30px; }
           .hikaye-gorsel { min-height: 290px; }
-          .hikaye-logo { width: 220px; }
-          .hikaye-yazi h2 { font-size: 45px; }
+          .hikaye-logo { width: 200px; }
+          .hikaye-yazi h2 { font-size: 38px; }
+          
           .ozellikler { grid-template-columns: 1fr; }
           .ozellik + .ozellik { border-top: 1px solid rgba(20, 20, 20, 0.08); border-left: 0; }
+          
           .yan-panel { width: 100%; padding: 20px; }
-          .detay-arka { padding: 14px; }
-          .detay-kart { grid-template-columns: 1fr; max-width: 450px; border-radius: 24px; }
-          .detay-gorsel { min-height: 240px; }
-          .detay-sembol { font-size: 75px; }
+          .detay-arka { padding: 0; align-items: flex-end; }
+          .detay-kart { max-height: 92vh; overflow-y: auto; border-radius: 24px 24px 0 0; }
+          .detay-gorsel { min-height: 220px; }
           .detay-icerik { padding: 25px; }
-          .detay-icerik h2 { font-size: 38px; }
-          .bildirim { right: 12px; bottom: 12px; max-width: calc(100% - 24px); padding: 13px 17px; }
-          .sepet-satiri { grid-template-columns: 55px minmax(0, 1fr); gap: 10px; }
-          .sepet-sembol { width: 55px; height: 60px; font-size: 24px; }
-          .sepet-ust h3 { font-size: 18px; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after {
-            scroll-behavior: auto !important;
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-          }
+          .detay-icerik h2 { font-size: 34px; }
+          .detay-kapat { position: fixed; top: 15px; right: 15px; background: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+          
+          .bildirim { right: 16px; bottom: 16px; left: 16px; text-align: center; padding: 14px 20px; font-size: 13px; }
         }
       `}</style>
 
@@ -1523,7 +1628,7 @@ export default function Home() {
         >
           <img
             className="logo-header"
-            src="/zyren-logo-transparent.png"
+            src="/zyren-logo.png"
             alt="ZYREN VERSÉ"
             decoding="async"
           />
@@ -1569,7 +1674,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ANA SAYFA */}
+      {/* ANA SAYFA (VİTRİN) */}
       {sayfa === "ana" ? (
         <>
           <section className="hero" id="ana-sayfa">
@@ -1579,7 +1684,7 @@ export default function Home() {
               <div className="hero-logo-wrap">
                 <img
                   className="hero-logo"
-                  src="/zyren-logo-transparent.png"
+                  src="/zyren-logo.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                 />
               </div>
@@ -1602,6 +1707,7 @@ export default function Home() {
             </div>
           </section>
 
+          {/* KOLEKSİYON (VİTRİN) - Sadece 6 Ürün */}
           <section className="bolum" id="koleksiyon">
             <div className="bolum-baslik">
               <span>ÖZENLE SEÇİLDİ</span>
@@ -1611,55 +1717,47 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="koleksiyon-ust">
-              <label className="arama-alani">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  type="search"
-                  placeholder="Ürün ara..."
-                  value={arama}
-                  onChange={(e) => setArama(e.target.value)}
-                  aria-label="Ürün ara"
-                />
-              </label>
-
-              <div className="kategori-listesi">
-                {kategoriFiltreleri.map((k) => (
-                  <button
-                    type="button"
-                    key={k.id}
-                    className={`kategori-buton ${
-                      kategoriId === k.id ? "aktif" : ""
-                    }`}
-                    aria-pressed={kategoriId === k.id}
-                    onClick={() => setKategoriId(k.id)}
-                  >
-                    {k.isim}
-                  </button>
-                ))}
-              </div>
+            <div className="urun-grid">
+              {!hazir ? (
+                <div className="bos-sonuc">Yükleniyor…</div>
+              ) : oneCikanUrunler.length === 0 ? (
+                <div className="bos-sonuc">Henüz ürün bulunmuyor.</div>
+              ) : (
+                oneCikanUrunler.map((urun) => (
+                  <UrunKarti
+                    key={urun.id}
+                    urun={urun}
+                    kategoriIsmi={kategoriBul(urun.kategoriId)?.isim ?? "—"}
+                    favoriMi={favoriler.includes(urun.id)}
+                    sepetteAdet={sepet[urun.id] ?? 0}
+                    onFavori={favoriDegistir}
+                    onDetay={setSeciliUrun}
+                    onSepeteEkle={sepeteEkle}
+                  />
+                ))
+              )}
             </div>
 
-            <div className="tum-urunler">
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "50px" }}>
               <button
                 type="button"
-                className="buton buton-ikincil"
+                className="buton"
+                style={{ padding: "16px 40px", fontSize: "13px", width: "100%", maxWidth: "350px" }}
                 onClick={() => sayfayaGit("urunler")}
               >
-                TÜM ÜRÜNLERİ GÖR
+                TÜM KOLEKSİYONU KEŞFET
                 <span aria-hidden="true">↗</span>
               </button>
             </div>
-
-            <div className="urun-grid">{urunGridIcerik}</div>
           </section>
 
+          {/* HİKAYE */}
           <section className="bolum" id="hikayemiz">
             <div className="hikaye">
               <div className="hikaye-gorsel">
                 <img
                   className="hikaye-logo"
-                  src="/zyren-logo-transparent.png"
+                  src="/zyren-logo.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                   loading="lazy"
                   decoding="async"
@@ -1694,6 +1792,7 @@ export default function Home() {
             </div>
           </section>
 
+          {/* ÖZELLİKLER */}
           <section className="bolum">
             <div className="ozellikler">
               <div className="ozellik">
@@ -1716,6 +1815,7 @@ export default function Home() {
         </>
       ) : (
         <>
+          {/* TÜM ÜRÜNLER SAYFASI */}
           <section className="urunler-hero">
             <div className="ust-etiket">ZYREN VERSÉ KOLEKSİYONU</div>
             <h1>Tüm Ürünler</h1>
@@ -1768,7 +1868,7 @@ export default function Home() {
       <footer className="altbilgi" id="iletisim">
         <img
           className="altbilgi-logo"
-          src="/zyren-logo-transparent.png"
+          src="/zyren-logo.png"
           alt="ZYREN VERSÉ"
           loading="lazy"
           decoding="async"
@@ -1778,25 +1878,10 @@ export default function Home() {
         <p>Timeless elegance. Your own expression.</p>
 
         <div className="altbilgi-linkler">
-          <button type="button" onClick={() => sayfayaGit("ana")}>
-            Ana Sayfa
-          </button>
-          <button type="button" onClick={() => sayfayaGit("urunler")}>
-            Tüm Ürünler
-          </button>
-          <button type="button" onClick={() => bolumeGit("hikayemiz")}>
-            Hikâyemiz
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              bildirimGoster(
-                "Bu demo sürümünde iletişim formu henüz aktif değil.",
-              )
-            }
-          >
-            İletişim
-          </button>
+          <button type="button" onClick={() => sayfayaGit("ana")}>Ana Sayfa</button>
+          <button type="button" onClick={() => sayfayaGit("urunler")}>Tüm Ürünler</button>
+          <button type="button" onClick={() => bolumeGit("hikayemiz")}>Hikâyemiz</button>
+          <button type="button" onClick={() => bildirimGoster("Bu demo sürümünde iletişim formu henüz aktif değil.")}>İletişim</button>
         </div>
 
         <div className="telif">
@@ -1806,7 +1891,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* PANELLER */}
+      {/* PANELLER (MENÜ / FAVORİLER / SEPET) */}
       {(menuAcik || favorilerAcik || sepetAcik) && (
         <>
           <button
@@ -1818,28 +1903,13 @@ export default function Home() {
 
           <aside
             className={`yan-panel ${menuAcik ? "menu-panel" : ""}`}
-            aria-label={
-              menuAcik
-                ? "Keşfet menüsü"
-                : favorilerAcik
-                  ? "Favoriler"
-                  : "Sepet"
-            }
+            aria-label={menuAcik ? "Keşfet menüsü" : favorilerAcik ? "Favoriler" : "Sepet"}
           >
             <div className="panel-ust">
               <h2>
-                {menuAcik
-                  ? "Keşfet"
-                  : favorilerAcik
-                    ? "Favorilerim"
-                    : "Alışveriş Sepetim"}
+                {menuAcik ? "Keşfet" : favorilerAcik ? "Favorilerim" : "Alışveriş Sepetim"}
               </h2>
-              <button
-                type="button"
-                className="ikon-dugme"
-                aria-label="Kapat"
-                onClick={panelleriKapat}
-              >
+              <button type="button" className="ikon-dugme" aria-label="Kapat" onClick={panelleriKapat}>
                 ×
               </button>
             </div>
@@ -1847,68 +1917,32 @@ export default function Home() {
             {menuAcik && (
               <div className="panel-icerik">
                 <div className="menu-grup-etiket">KEŞFET</div>
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => sayfayaGit("ana")}
-                >
-                  Ana Sayfa
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => sayfayaGit("ana")}>
+                  Ana Sayfa <span aria-hidden="true">↗</span>
                 </button>
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => bolumeGit("koleksiyon")}
-                >
-                  Koleksiyon
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => bolumeGit("koleksiyon")}>
+                  Koleksiyon <span aria-hidden="true">↗</span>
                 </button>
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => sayfayaGit("urunler")}
-                >
-                  Tüm Ürünler
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => sayfayaGit("urunler")}>
+                  Tüm Ürünler <span aria-hidden="true">↗</span>
                 </button>
 
                 <div className="menu-grup-etiket">KATEGORİLER</div>
                 {kategoriler.map((k) => (
-                  <button
-                    type="button"
-                    key={k.id}
-                    className="menu-baglantisi"
-                    onClick={() => kategoriSec(k.id)}
-                  >
-                    {k.isim}
-                    <span aria-hidden="true">↗</span>
+                  <button type="button" key={k.id} className="menu-baglantisi" onClick={() => kategoriSec(k.id)}>
+                    {k.isim} <span aria-hidden="true">↗</span>
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => kategoriSec(HEPSI)}
-                >
-                  Tüm kategoriler
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => kategoriSec(HEPSI)}>
+                  Tüm kategoriler <span aria-hidden="true">↗</span>
                 </button>
 
                 <div className="menu-grup-etiket">ZYREN VERSÉ</div>
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => bolumeGit("hikayemiz")}
-                >
-                  Hikâyemiz
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => bolumeGit("hikayemiz")}>
+                  Hikâyemiz <span aria-hidden="true">↗</span>
                 </button>
-                <button
-                  type="button"
-                  className="menu-baglantisi"
-                  onClick={() => bolumeGit("iletisim")}
-                >
-                  İletişim
-                  <span aria-hidden="true">↗</span>
+                <button type="button" className="menu-baglantisi" onClick={() => bolumeGit("iletisim")}>
+                  İletişim <span aria-hidden="true">↗</span>
                 </button>
               </div>
             )}
@@ -1921,21 +1955,11 @@ export default function Home() {
                     Henüz favorilerine ürün eklememişsin.
                   </div>
                 ) : (
-                  urunler
-                    .filter((u) => favoriler.includes(u.id))
-                    .map((urun) => (
+                  <>
+                    {urunler.filter((u) => favoriler.includes(u.id)).map((urun) => (
                       <div className="sepet-satiri" key={urun.id}>
                         <div className="sepet-sembol" aria-hidden="true">
-                          {urun.gorselUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={urun.gorselUrl}
-                              alt=""
-                              style={{ width: "80%", height: "80%", objectFit: "contain" }}
-                            />
-                          ) : (
-                            urun.sembol
-                          )}
+                          {urun.gorselUrl ? <img src={urun.gorselUrl} alt="" /> : urun.sembol}
                         </div>
                         <div className="sepet-icerik">
                           <div className="sepet-ust">
@@ -1943,7 +1967,6 @@ export default function Home() {
                             <button
                               type="button"
                               className="sil-buton"
-                              aria-label={`${urun.isim} ürününü favorilerden kaldır`}
                               onClick={() => favoriDegistir(urun.id)}
                             >
                               Kaldır
@@ -1952,7 +1975,12 @@ export default function Home() {
                           <p className="sepet-birim-fiyat">{PARA(urun.fiyat)}</p>
                         </div>
                       </div>
-                    ))
+                    ))}
+                    {/* Favorileri Sepete Ekle Butonu */}
+                    <button type="button" className="favori-hepsini-ekle" onClick={favorileriSepeteEkle}>
+                      TÜMÜNÜ SEPETE EKLE ({favoriler.length})
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1969,16 +1997,7 @@ export default function Home() {
                     sepettekiUrunler.map(({ urun, adet }) => (
                       <div className="sepet-satiri" key={urun.id}>
                         <div className="sepet-sembol" aria-hidden="true">
-                          {urun.gorselUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={urun.gorselUrl}
-                              alt=""
-                              style={{ width: "80%", height: "80%", objectFit: "contain" }}
-                            />
-                          ) : (
-                            urun.sembol
-                          )}
+                          {urun.gorselUrl ? <img src={urun.gorselUrl} alt="" /> : urun.sembol}
                         </div>
 
                         <div className="sepet-icerik">
@@ -1987,36 +2006,17 @@ export default function Home() {
                             <button
                               type="button"
                               className="sil-buton"
-                              aria-label={`${urun.isim} ürününü sepetten sil`}
                               onClick={() => sepettenSil(urun.id)}
                             >
                               Sil
                             </button>
                           </div>
-                          <p className="sepet-birim-fiyat">
-                            {PARA(urun.fiyat)} / adet
-                          </p>
+                          <p className="sepet-birim-fiyat">{PARA(urun.fiyat)} / adet</p>
                           <div className="sepet-alt">
-                            <div
-                              className="adet-kontrol"
-                              role="group"
-                              aria-label={`${urun.isim} adedi`}
-                            >
-                              <button
-                                type="button"
-                                aria-label="Adedi azalt"
-                                onClick={() => adetAzalt(urun.id)}
-                              >
-                                −
-                              </button>
+                            <div className="adet-kontrol" role="group">
+                              <button type="button" onClick={() => adetAzalt(urun.id)}>−</button>
                               <span aria-live="polite">{adet}</span>
-                              <button
-                                type="button"
-                                aria-label="Adedi arttır"
-                                onClick={() => adetArttir(urun.id)}
-                              >
-                                +
-                              </button>
+                              <button type="button" onClick={() => adetArttir(urun.id)}>+</button>
                             </div>
                             <strong className="sepet-satir-toplam">
                               {PARA(urun.fiyat * adet)}
@@ -2030,29 +2030,26 @@ export default function Home() {
 
                 <div className="panel-alt">
                   <div className="sepet-toplam">
-                    <span>Toplam ({sepetAdetToplami} ürün)</span>
+                    <div>
+                      <span>Toplam ({sepetAdetToplami} ürün)</span>
+                      {sepetAdetToplami > 0 && (
+                        <button type="button" className="sepeti-temizle-btn" onClick={sepetiTemizle} style={{ display: "block", marginTop: 4 }}>
+                          Sepeti Temizle
+                        </button>
+                      )}
+                    </div>
                     <strong>{PARA(sepetToplami)}</strong>
                   </div>
+                  
                   <button
                     type="button"
                     className="buton"
-                    onClick={() =>
-                      bildirimGoster(
-                        "Bu demo sürümünde gerçek ödeme veya sipariş oluşturulmaz.",
-                      )
-                    }
+                    onClick={() => bildirimGoster("Bu demo sürümünde gerçek ödeme veya sipariş oluşturulmaz.")}
                   >
                     DEMO ÖDEME
                     <span aria-hidden="true">↗</span>
                   </button>
-                  <p
-                    style={{
-                      color: "#888",
-                      fontSize: 10,
-                      lineHeight: 1.8,
-                      textAlign: "center",
-                    }}
-                  >
+                  <p style={{ color: "#888", fontSize: 10, lineHeight: 1.8, textAlign: "center" }}>
                     Bu sepet test amaçlıdır. Gerçek sipariş veya ödeme yapılmaz.
                   </p>
                 </div>
@@ -2062,7 +2059,7 @@ export default function Home() {
         </>
       )}
 
-      {/* DETAY MODALI */}
+      {/* ÜRÜN DETAY MODALI */}
       {seciliUrun && (
         <div
           className="detay-arka"
@@ -2089,7 +2086,6 @@ export default function Home() {
 
             <div className="detay-gorsel">
               {seciliUrun.gorselUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   className="detay-gorsel-img"
                   src={seciliUrun.gorselUrl}
@@ -2113,7 +2109,7 @@ export default function Home() {
               <button
                 type="button"
                 className="buton"
-                style={{ width: "100%" }}
+                style={{ width: "100%", marginBottom: 10 }}
                 onClick={() => sepeteEkle(seciliUrun.id)}
               >
                 {sepet[seciliUrun.id]
@@ -2125,13 +2121,46 @@ export default function Home() {
               <button
                 type="button"
                 className="buton buton-ikincil"
-                style={{ width: "100%", marginTop: 10 }}
+                style={{ width: "100%" }}
                 onClick={() => favoriDegistir(seciliUrun.id)}
               >
                 {favoriler.includes(seciliUrun.id)
                   ? "♥ FAVORİLERDEN ÇIKAR"
                   : "♡ FAVORİLERE EKLE"}
               </button>
+
+              {/* BENZER ÜRÜNLER (YENİ) */}
+              {benzerUrunler.length > 0 && (
+                <div className="benzer-bolum">
+                  <div className="benzer-baslik">BUNLARI DA SEVEBİLİRSİN</div>
+                  <div className="benzer-grid">
+                    {benzerUrunler.map((u) => (
+                      <div
+                        key={u.id}
+                        className="benzer-kart"
+                        onClick={() => setSeciliUrun(u)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSeciliUrun(u);
+                          }
+                        }}
+                      >
+                        <div className="benzer-sembol">
+                          {u.gorselUrl ? <img src={u.gorselUrl} alt="" /> : u.sembol}
+                        </div>
+                        <div>
+                          <div className="benzer-isim">{u.isim}</div>
+                          <div className="benzer-fiyat">{PARA(u.fiyat)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           </article>
         </div>

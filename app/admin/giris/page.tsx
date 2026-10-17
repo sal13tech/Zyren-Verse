@@ -60,7 +60,7 @@ export default function AdminGiris() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/zyren-logo-transparent.png"
+          src="/zyren-logo.png"
           alt="ZYREN VERSÉ"
           style={{
             display: "block",
