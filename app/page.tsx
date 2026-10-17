@@ -569,7 +569,6 @@ export default function Home() {
           width: 110px;
           height: 62px;
           object-fit: contain;
-          mix-blend-mode: multiply;
           filter: contrast(1.04) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.08));
         }
 
@@ -626,23 +625,21 @@ export default function Home() {
 
         .hero-icerik { width: 100%; max-width: 950px; }
 
-        /* Logoyu saran daire, arka plan ve gölge tamamen kaldırıldı */
+        /* Logo büyütüldü */
         .hero-logo-wrap {
           position: relative;
           display: flex;
           justify-content: center;
           align-items: center;
-          width: min(450px, 90vw);
-          margin: 0 auto 20px;
+          width: min(560px, 92vw);
+          margin: 0 auto 30px;
         }
 
         .hero-logo {
           position: relative;
-          z-index: 1;
           width: 100%;
           height: auto;
           object-fit: contain;
-          /* Şeffaf PNG olduğu için mix-blend-mode silindi, sadece hoş bir gölge kaldı */
           filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.12));
         }
 
@@ -1083,7 +1080,6 @@ export default function Home() {
           z-index: 1;
           width: 260px;
           max-width: 65%;
-          mix-blend-mode: multiply;
           filter: drop-shadow(0 20px 18px rgba(0, 0, 0, 0.1));
         }
         .hikaye-yazi .ust-etiket { font-size: 10px; }
@@ -1119,7 +1115,7 @@ export default function Home() {
           border-top: 1px solid rgba(20, 20, 20, 0.07);
           text-align: center;
         }
-        .altbilgi-logo { width: 100px; margin-bottom: 10px; mix-blend-mode: multiply; }
+        .altbilgi-logo { width: 100px; margin-bottom: 10px; }
         .altbilgi-marka { font-family: var(--font-cormorant), Georgia, serif; font-size: 34px; letter-spacing: 4px; }
         .altbilgi p { color: #858585; font-size: 12px; line-height: 2; }
         .altbilgi-linkler {
@@ -1515,22 +1511,21 @@ export default function Home() {
           .marka-kucuk { display: none; }
           
           .hero { min-height: 550px; padding: 60px 18px 80px; }
-          .hero-logo-wrap { width: min(300px, 82vw); margin-bottom: 22px; }
-          .hero-logo { width: 62%; }
+          .hero-logo-wrap { margin-bottom: 22px; } /* Sadece alt boşluğu azalttık, genişlik yukarıdan geliyor */
           .hero h1 { font-size: clamp(42px, 12vw, 65px); letter-spacing: 4px; }
           .hero-aciklama { font-size: 13px; margin: 20px auto 30px; }
           
           .bolum { padding: 70px 4%; }
           .koleksiyon-ust { align-items: stretch; }
           .arama-alani { max-width: none; min-height: 48px; }
-          .arama-alani input { font-size: 16px; } /* iOS zoom engelleme */
+          .arama-alani input { font-size: 16px; } 
           .kategori-listesi { width: 100%; }
           .kategori-buton { flex: 1; min-width: max-content; padding: 10px 14px; font-size: 11px; }
           
           .urun-grid { grid-template-columns: 1fr; gap: 16px; }
           .urun-kart { 
             flex-direction: row; 
-            height: auto; /* Yükseklik sınırı kaldırıldı (siyah şerit sorunu çözümü) */
+            height: auto; 
             min-height: 150px;
           } 
           .urun-gorsel { 
@@ -1555,7 +1550,7 @@ export default function Home() {
             padding: 8px; 
             font-size: 10px; 
             margin-top: 4px;
-            color: #fff !important; /* Siyah üstüne siyah yazıyı engelle */
+            color: #fff !important; 
           }
           
           .favori-kalp { top: 8px; right: 8px; width: 32px; height: 32px; font-size: 14px; }
