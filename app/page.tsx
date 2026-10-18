@@ -1610,7 +1610,7 @@ export default function Home() {
         >
           <img
             className="logo-header"
-            src="/zyren-logo.png"
+            src="/.png"
             alt="ZYREN VERSÉ"
             decoding="async"
           />
@@ -1666,7 +1666,7 @@ export default function Home() {
               <div className="hero-logo-wrap">
                 <img
                   className="hero-logo"
-                  src="/zyren-logo.png"
+                  src="/.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                 />
               </div>
@@ -1739,7 +1739,7 @@ export default function Home() {
               <div className="hikaye-gorsel">
                 <img
                   className="hikaye-logo"
-                  src="/zyren-logo.png"
+                  src="/.png"
                   alt="ZYREN VERSÉ kuğu logosu"
                   loading="lazy"
                   decoding="async"
