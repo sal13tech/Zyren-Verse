@@ -60,7 +60,7 @@ export default function AdminGiris() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/.png"
+          src="/zyren-logo.png"
           alt="ZYREN VERSÉ"
           style={{
             display: "block",
@@ -68,7 +68,6 @@ export default function AdminGiris() {
             height: 62,
             margin: "0 auto 12px",
             objectFit: "contain",
-            mixBlendMode: "multiply",
           }}
         />
 

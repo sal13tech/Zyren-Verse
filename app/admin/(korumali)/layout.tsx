@@ -30,7 +30,6 @@ export default function AdminKorumaliLayout({
     }
   }, [router]);
 
-  /* Sayfa değişince menüyü kapat */
   useEffect(() => {
     setMenuAcik(false);
   }, [pathname]);
@@ -60,34 +59,16 @@ export default function AdminKorumaliLayout({
     );
   }
 
-  const aktifBaslik =
-    MENULER.find((m) => m.href === pathname)?.isim ?? "Yönetim";
+  const aktifBaslik = MENULER.find((m) => m.href === pathname)?.isim ?? "Yönetim";
 
   return (
     <>
       <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          overflow-x: hidden;
-        }
-
-        body {
-          background: #f5f4f1;
-          color: #171717;
-          font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        button {
-          font: inherit;
-          cursor: pointer;
-        }
-
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; overflow-x: hidden; }
+        body { background: #f5f4f1; color: #171717; font-family: system-ui, -apple-system, sans-serif; }
+        button { font: inherit; cursor: pointer; }
+        
         .admin-kabuk {
           display: grid;
           grid-template-columns: 250px 1fr;
@@ -98,7 +79,6 @@ export default function AdminKorumaliLayout({
             linear-gradient(135deg, #f7f6f3 0%, #ffffff 45%, #f0f0ed 100%);
         }
 
-        /* ---------- SIDEBAR ---------- */
         .admin-sidebar {
           display: flex;
           flex-direction: column;
@@ -106,7 +86,6 @@ export default function AdminKorumaliLayout({
           border-right: 1px solid rgba(20, 20, 20, 0.07);
           background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(20px) saturate(140%);
-          -webkit-backdrop-filter: blur(20px) saturate(140%);
         }
 
         .admin-marka {
@@ -125,7 +104,6 @@ export default function AdminKorumaliLayout({
           width: 80px;
           height: 54px;
           object-fit: contain;
-          mix-blend-mode: multiply;
         }
 
         .admin-marka span {
@@ -174,10 +152,7 @@ export default function AdminKorumaliLayout({
           color: #fff !important;
         }
 
-        .admin-link-ikon {
-          font-size: 16px;
-          line-height: 1;
-        }
+        .admin-link-ikon { font-size: 16px; line-height: 1; }
 
         .admin-cikis {
           display: flex;
@@ -194,17 +169,9 @@ export default function AdminKorumaliLayout({
           text-align: left;
           width: 100%;
         }
+        .admin-cikis:hover { background: rgba(180, 90, 90, 0.08); }
 
-        .admin-cikis:hover {
-          background: rgba(180, 90, 90, 0.08);
-        }
-
-        /* ---------- ANA İÇERİK ---------- */
-        .admin-icerik-alani {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
+        .admin-icerik-alani { display: flex; flex-direction: column; min-width: 0; }
 
         .admin-ust {
           display: flex;
@@ -215,18 +182,12 @@ export default function AdminKorumaliLayout({
           border-bottom: 1px solid rgba(20, 20, 20, 0.07);
           background: rgba(255, 255, 255, 0.6);
           backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
           position: sticky;
           top: 0;
           z-index: 20;
         }
 
-        .admin-ust-sol {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-width: 0;
-        }
+        .admin-ust-sol { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
         .admin-ust h1 {
           margin: 0;
@@ -248,13 +209,8 @@ export default function AdminKorumaliLayout({
           white-space: nowrap;
         }
 
-        .admin-icerik {
-          flex: 1;
-          padding: 32px 40px 60px;
-          min-width: 0;
-        }
+        .admin-icerik { flex: 1; padding: 32px 40px 60px; min-width: 0; }
 
-        /* Hamburger — masaüstünde gizli */
         .admin-hamburger {
           display: none;
           align-items: center;
@@ -276,16 +232,11 @@ export default function AdminKorumaliLayout({
           border: 0;
           background: rgba(20, 20, 20, 0.4);
           backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
           cursor: default;
         }
 
-        /* ---------- MOBİL (≤820px) ---------- */
         @media (max-width: 820px) {
-          .admin-kabuk {
-            grid-template-columns: 1fr;
-          }
-
+          .admin-kabuk { grid-template-columns: 1fr; }
           .admin-sidebar {
             position: fixed;
             top: 0;
@@ -299,50 +250,22 @@ export default function AdminKorumaliLayout({
             transition: transform 0.28s ease;
             box-shadow: 20px 0 60px rgba(20, 20, 20, 0.15);
           }
-
-          .admin-sidebar.acik {
-            transform: translateX(0);
-          }
-
-          .admin-hamburger {
-            display: inline-flex;
-          }
-
-          .admin-overlay.gorunur {
-            display: block;
-          }
-
-          .admin-ust {
-            padding: 14px 16px;
-          }
-
-          .admin-ust h1 {
-            font-size: 18px;
-            letter-spacing: 0.5px;
-          }
-
-          .admin-ust-link {
-            font-size: 11px;
-          }
-
-          .admin-icerik {
-            padding: 20px 16px 60px;
-          }
+          .admin-sidebar.acik { transform: translateX(0); }
+          .admin-hamburger { display: inline-flex; }
+          .admin-overlay.gorunur { display: block; }
+          .admin-ust { padding: 14px 16px; }
+          .admin-ust h1 { font-size: 18px; letter-spacing: 0.5px; }
+          .admin-ust-link { font-size: 11px; }
+          .admin-icerik { padding: 20px 16px 60px; }
         }
 
         @media (max-width: 480px) {
-          .admin-ust h1 {
-            font-size: 16px;
-          }
-
-          .admin-ust-link {
-            display: none;
-          }
+          .admin-ust h1 { font-size: 16px; }
+          .admin-ust-link { display: none; }
         }
       `}</style>
 
       <div className="admin-kabuk">
-        {/* Overlay — sadece mobilde ve menü açıkken */}
         <button
           type="button"
           className={`admin-overlay ${menuAcik ? "gorunur" : ""}`}
@@ -350,43 +273,27 @@ export default function AdminKorumaliLayout({
           onClick={() => setMenuAcik(false)}
         />
 
-        {/* SIDEBAR */}
         <aside className={`admin-sidebar ${menuAcik ? "acik" : ""}`}>
-          <Link
-            href="/admin"
-            className="admin-marka"
-            onClick={() => setMenuAcik(false)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/.png" alt="ZYREN VERSÉ" />
+          <Link href="/admin" className="admin-marka" onClick={() => setMenuAcik(false)}>
+            <img src="/zyren-logo.png" alt="ZYREN VERSÉ" />
             <span>YÖNETİM</span>
           </Link>
 
           <nav className="admin-nav">
             <div className="admin-grup-baslik">MENÜ</div>
-
             {MENULER.map((m) => {
               const aktif = pathname === m.href;
               return (
-                <Link
-                  key={m.href}
-                  href={m.href}
-                  className={`admin-link ${aktif ? "aktif" : ""}`}
-                >
-                  <span className="admin-link-ikon" aria-hidden="true">
-                    {m.ikon}
-                  </span>
+                <Link key={m.href} href={m.href} className={`admin-link ${aktif ? "aktif" : ""}`}>
+                  <span className="admin-link-ikon" aria-hidden="true">{m.ikon}</span>
                   {m.isim}
                 </Link>
               );
             })}
 
             <div className="admin-grup-baslik">SİTE</div>
-
             <Link href="/" className="admin-link">
-              <span className="admin-link-ikon" aria-hidden="true">
-                🌐
-              </span>
+              <span className="admin-link-ikon" aria-hidden="true">🌐</span>
               Mağazayı Gör
             </Link>
           </nav>
@@ -397,30 +304,14 @@ export default function AdminKorumaliLayout({
           </button>
         </aside>
 
-        {/* ANA ALAN */}
         <div className="admin-icerik-alani">
           <header className="admin-ust">
             <div className="admin-ust-sol">
-              <button
-                type="button"
-                className="admin-hamburger"
-                aria-label="Menüyü aç"
-                onClick={() => setMenuAcik(true)}
-              >
-                ☰
-              </button>
+              <button type="button" className="admin-hamburger" aria-label="Menüyü aç" onClick={() => setMenuAcik(true)}>☰</button>
               <h1>{aktifBaslik}</h1>
             </div>
-
-            <Link
-              href="/"
-              target="_blank"
-              className="admin-ust-link"
-            >
-              MAĞAZAYI GÖR ↗
-            </Link>
+            <Link href="/" target="_blank" className="admin-ust-link">MAĞAZAYI GÖR ↗</Link>
           </header>
-
           <div className="admin-icerik">{children}</div>
         </div>
       </div>
