@@ -9,7 +9,7 @@ export async function GET() {
       sql`
         SELECT
           id, isim, kategori_id as "kategoriId", fiyat, sembol,
-          gorsel_url as "gorselUrl", etiket, aciklama, created_at as "createdAt"
+          gorsel_url as "gorselUrl", etiket, aciklama, created_at as "createdAt", stok
         FROM urunler
         ORDER BY created_at DESC
       `,

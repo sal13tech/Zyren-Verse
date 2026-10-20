@@ -1,7 +1,3 @@
-/**
- * Projedeki tüm veri tipleri burada.
- */
-
 export type Kategori = {
   id: string;
   isim: string;
@@ -19,6 +15,7 @@ export type Urun = {
   etiket?: string;
   aciklama: string;
   createdAt: number;
+  stok: number; // STOK EKLENDİ
 };
 
 export type StoreContextTipi = {

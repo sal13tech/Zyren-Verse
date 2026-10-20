@@ -18,7 +18,8 @@ export async function PATCH(
         sembol = COALESCE(${b.sembol ?? null}, sembol),
         gorsel_url = COALESCE(${b.gorselUrl ?? null}, gorsel_url),
         etiket = COALESCE(${b.etiket ?? null}, etiket),
-        aciklama = COALESCE(${b.aciklama ?? null}, aciklama)
+        aciklama = COALESCE(${b.aciklama ?? null}, aciklama),
+        stok = COALESCE(${b.stok ?? null}, stok)
       WHERE id = ${id}
     `;
 

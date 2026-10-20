@@ -15,9 +15,9 @@ export const SEED_URUNLER: Urun[] = [
     fiyat: 749,
     sembol: "🦢",
     etiket: "ÇOK SEVİLEN",
-    aciklama:
-      "Zarafeti ve sadeliği bir araya getiren, kuğu sembolümüzden ilham alan özel tasarım.",
+    aciklama: "Zarafeti ve sadeliği bir araya getiren, kuğu sembolümüzden ilham alan özel tasarım.",
     createdAt: 1,
+    stok: 10,
   },
   {
     id: "urun-luna-kupe",
@@ -27,6 +27,7 @@ export const SEED_URUNLER: Urun[] = [
     sembol: "✧",
     aciklama: "Ay ışığının zarafetinden ilham alan modern ve sade tasarım.",
     createdAt: 2,
+    stok: 10,
   },
   {
     id: "urun-aurelia-bileklik",
@@ -35,9 +36,9 @@ export const SEED_URUNLER: Urun[] = [
     fiyat: 619,
     sembol: "〰",
     etiket: "YENİ",
-    aciklama:
-      "Minimal çizgileri ve zamansız görünümüyle her stile uyum sağlar.",
+    aciklama: "Minimal çizgileri ve zamansız görünümüyle her stile uyum sağlar.",
     createdAt: 3,
+    stok: 10,
   },
   {
     id: "urun-selene-kolye",
@@ -45,9 +46,9 @@ export const SEED_URUNLER: Urun[] = [
     kategoriId: "kolyeler",
     fiyat: 679,
     sembol: "☾",
-    aciklama:
-      "Gökyüzünün büyüsünü modern tasarımla buluşturan zarif bir kolye.",
+    aciklama: "Gökyüzünün büyüsünü modern tasarımla buluşturan zarif bir kolye.",
     createdAt: 4,
+    stok: 10,
   },
   {
     id: "urun-mira-yuzuk",
@@ -55,9 +56,9 @@ export const SEED_URUNLER: Urun[] = [
     kategoriId: "yuzukler",
     fiyat: 459,
     sembol: "◇",
-    aciklama:
-      "Geometrik detayları ve yalın tasarımıyla zamansız bir tamamlayıcı.",
+    aciklama: "Geometrik detayları ve yalın tasarımıyla zamansız bir tamamlayıcı.",
     createdAt: 5,
+    stok: 10,
   },
   {
     id: "urun-nova-kupe",
@@ -65,8 +66,8 @@ export const SEED_URUNLER: Urun[] = [
     kategoriId: "kupeler",
     fiyat: 579,
     sembol: "✦",
-    aciklama:
-      "Yıldızlardan ilham alan modern tasarımıyla stiline ışıltı katar.",
+    aciklama: "Yıldızlardan ilham alan modern tasarımıyla stiline ışıltı katar.",
     createdAt: 6,
+    stok: 10,
   },
 ];

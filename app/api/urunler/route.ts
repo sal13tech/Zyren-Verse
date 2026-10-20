@@ -9,10 +9,10 @@ export async function POST(req: NextRequest) {
     await sql`
       INSERT INTO urunler (
         id, isim, kategori_id, fiyat, sembol,
-        gorsel_url, etiket, aciklama, created_at
+        gorsel_url, etiket, aciklama, created_at, stok
       ) VALUES (
         ${b.id}, ${b.isim}, ${b.kategoriId}, ${b.fiyat}, ${b.sembol},
-        ${b.gorselUrl ?? null}, ${b.etiket ?? null}, ${b.aciklama}, ${b.createdAt}
+        ${b.gorselUrl ?? null}, ${b.etiket ?? null}, ${b.aciklama}, ${b.createdAt}, ${b.stok ?? 10}
       )
     `;
 

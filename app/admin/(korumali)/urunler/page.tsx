@@ -21,6 +21,7 @@ type FormDurum = {
   etiket: string;
   aciklama: string;
   gorselUrl: string;
+  stok: string; // YENİ
 };
 
 const BOS_FORM: FormDurum = {
@@ -33,6 +34,7 @@ const BOS_FORM: FormDurum = {
   etiket: "",
   aciklama: "",
   gorselUrl: "",
+  stok: "10", // YENİ: Varsayılan stok 10
 };
 
 export default function AdminUrunler() {
@@ -50,7 +52,7 @@ export default function AdminUrunler() {
   const [formHata, setFormHata] = useState("");
   const [silinecekId, setSilinecekId] = useState<string | null>(null);
   const [bildirim, setBildirim] = useState("");
-  const [yukleniyor, setYukleniyor] = useState(false); // Resim yüklenirken butonu kilitlemek için
+  const [yukleniyor, setYukleniyor] = useState(false);
 
   const [arama, setArama] = useState("");
   const [filtreKategori, setFiltreKategori] = useState<string>("hepsi");
@@ -90,6 +92,7 @@ export default function AdminUrunler() {
       etiket: u.etiket ?? "",
       aciklama: u.aciklama,
       gorselUrl: u.gorselUrl ?? "",
+      stok: String(u.stok ?? 0), // YENİ
     });
     setFormHata("");
   }
@@ -107,7 +110,6 @@ export default function AdminUrunler() {
     setYukleniyor(true);
 
     try {
-      // 1. Resmi tarayıcıda sıkıştır (Canvas kullanarak)
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -116,21 +118,19 @@ export default function AdminUrunler() {
           img.src = event.target?.result as string;
           img.onload = () => {
             const canvas = document.createElement("canvas");
-            const MAX_WIDTH = 800; // Maksimum genişlik 800px
+            const MAX_WIDTH = 800;
             const scale = MAX_WIDTH / img.width;
             canvas.width = MAX_WIDTH;
             canvas.height = img.height * scale;
 
             const ctx = canvas.getContext("2d");
             ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-            // Kaliteyi %80 yap ve JPEG olarak çıkar
             resolve(canvas.toDataURL("image/jpeg", 0.8));
           };
           img.onerror = (err) => reject(err);
         };
       });
 
-      // 2. Sıkıştırılmış resmi API'ye gönder
       const res = await fetch("/api/yukle", {
         method: "POST",
         body: (() => {
@@ -143,7 +143,6 @@ export default function AdminUrunler() {
       if (!res.ok) throw new Error("Yükleme başarısız oldu");
       const data = await res.json();
 
-      // 3. Gelen URL'yi forma yaz
       setForm((f) => ({ ...f, gorselUrl: data.url }));
       toast("Görsel başarıyla yüklendi.");
     } catch (error) {
@@ -163,10 +162,12 @@ export default function AdminUrunler() {
     const sembol = form.sembol.trim();
     const etiket = form.etiket.trim();
     const fiyatNum = parseInt(form.fiyat, 10);
+    const stokNum = parseInt(form.stok, 10); // YENİ
 
     if (isim.length < 2) return setFormHata("Ürün adı en az 2 karakter olmalı.");
     if (!form.kategoriId) return setFormHata("Lütfen bir kategori seçin.");
     if (isNaN(fiyatNum) || fiyatNum <= 0) return setFormHata("Geçerli bir fiyat girin.");
+    if (isNaN(stokNum) || stokNum < 0) return setFormHata("Geçerli bir stok adedi girin (0 veya üzeri)."); // YENİ
     if (sembol.length === 0) return setFormHata("Lütfen bir emoji sembol girin.");
     if (aciklama.length < 5) return setFormHata("Açıklama en az 5 karakter olmalı.");
 
@@ -179,6 +180,7 @@ export default function AdminUrunler() {
         etiket: etiket || undefined,
         aciklama,
         gorselUrl: form.gorselUrl || undefined,
+        stok: stokNum, // YENİ
       });
       toast("Ürün güncellendi.");
     } else {
@@ -190,6 +192,7 @@ export default function AdminUrunler() {
         etiket: etiket || undefined,
         aciklama,
         gorselUrl: form.gorselUrl || undefined,
+        stok: stokNum, // YENİ
       });
       toast("Ürün eklendi.");
     }
@@ -301,8 +304,24 @@ export default function AdminUrunler() {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          display: flex;
+          align-items: center;
         }
         .kategori { margin: 0; color: #999; font-size: 11px; font-weight: 600; }
+        
+        /* STOK ETİKETİ */
+        .stok-badge {
+          display: inline-block;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 700;
+          margin-left: 8px;
+          white-space: nowrap;
+        }
+        .stok-badge.var { background: #e8f5e9; color: #2e7d32; }
+        .stok-badge.yok { background: #ffebee; color: #c62828; }
+
         .fiyat { font-family: Georgia, serif; font-size: 16px; font-weight: 700; color: #8f733f; }
         .islemler { display: flex; gap: 6px; }
         .btn { padding: 8px 12px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
@@ -389,7 +408,8 @@ export default function AdminUrunler() {
         @media (max-width: 640px) {
           .satir { grid-template-columns: 48px 1fr; gap: 12px; padding: 14px 16px; row-gap: 8px; }
           .gorsel { width: 42px; height: 42px; font-size: 20px; grid-row: span 2; }
-          .isim { font-size: 16px; }
+          .isim { font-size: 16px; flex-direction: column; align-items: flex-start; gap: 4px; }
+          .stok-badge { margin-left: 0; }
           .fiyat { grid-column: 2; font-size: 14px; }
           .islemler { grid-column: 2; margin-top: 4px; }
           .form-row { grid-template-columns: 1fr; }
@@ -445,7 +465,13 @@ export default function AdminUrunler() {
                 {urun.gorselUrl ? <img src={urun.gorselUrl} alt="" /> : urun.sembol}
               </div>
               <div className="bilgi">
-                <h3 className="isim">{urun.isim}</h3>
+                <h3 className="isim">
+                  {urun.isim}
+                  {/* STOK DURUMU */}
+                  <span className={`stok-badge ${urun.stok > 0 ? "var" : "yok"}`}>
+                    {urun.stok > 0 ? `Stok: ${urun.stok}` : "TÜKENDİ"}
+                  </span>
+                </h3>
                 <p className="kategori">{kategoriBul(urun.kategoriId)?.isim ?? "Kategorisiz"}</p>
               </div>
               <div className="fiyat">{PARA(urun.fiyat)}</div>
@@ -511,15 +537,21 @@ export default function AdminUrunler() {
               </div>
             </div>
 
+            {/* STOK ALANI */}
             <div className="form-row form-grup">
+              <div>
+                <label className="form-etiket">STOK ADEDİ *</label>
+                <input type="number" value={form.stok} onChange={(e) => setForm((f) => ({ ...f, stok: e.target.value }))} placeholder="Örn: 10" className="form-input" min="0" required />
+              </div>
               <div>
                 <label className="form-etiket">SEMBOL (YEDEK) *</label>
                 <input type="text" value={form.sembol} onChange={(e) => setForm((f) => ({ ...f, sembol: e.target.value }))} placeholder="Örn: 🌟" className="form-input" maxLength={4} required />
               </div>
-              <div>
-                <label className="form-etiket">ETİKET (OPSİYONEL)</label>
-                <input type="text" value={form.etiket} onChange={(e) => setForm((f) => ({ ...f, etiket: e.target.value }))} placeholder="Örn: YENİ" className="form-input" maxLength={20} />
-              </div>
+            </div>
+
+            <div className="form-grup">
+              <label className="form-etiket">ETİKET (OPSİYONEL)</label>
+              <input type="text" value={form.etiket} onChange={(e) => setForm((f) => ({ ...f, etiket: e.target.value }))} placeholder="Örn: YENİ" className="form-input" maxLength={20} />
             </div>
 
             <div className="form-grup">
