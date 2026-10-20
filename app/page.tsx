@@ -91,6 +91,9 @@ function UrunKarti({
   onDetay,
   onSepeteEkle,
 }: UrunKartiProps) {
+  const tukendi = urun.stok <= 0;
+  const sepettekiMaks = sepetteAdet >= urun.stok;
+
   function klavyeIleAc(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -100,7 +103,7 @@ function UrunKarti({
 
   return (
     <article
-      className="urun-kart"
+      className={`urun-kart ${tukendi ? "tukendi-kart" : ""}`}
       role="button"
       tabIndex={0}
       aria-label={`${urun.isim} ürün detaylarını aç`}
@@ -112,6 +115,12 @@ function UrunKarti({
           <span className={`urun-etiket ${urun.etiket === "YENİ" ? "yeni-parla" : ""}`}>
             {urun.etiket}
           </span>
+        )}
+
+        {tukendi && (
+          <div className="tukendi-overlay">
+            <span>TÜKENDİ</span>
+          </div>
         )}
 
         <button
@@ -162,13 +171,20 @@ function UrunKarti({
         
         <button
           type="button"
-          className={`hizli-sepet-btn ${sepetteAdet > 0 ? "sepette" : ""}`}
+          disabled={tukendi || sepettekiMaks}
+          className={`hizli-sepet-btn ${sepetteAdet > 0 ? "sepette" : ""} ${tukendi ? "tukendi-btn" : ""}`}
           onClick={(event) => {
             event.stopPropagation();
-            onSepeteEkle(urun.id);
+            if (!tukendi && !sepettekiMaks) onSepeteEkle(urun.id);
           }}
         >
-          {sepetteAdet > 0 ? `SEPETTE (${sepetteAdet}) · +1 EKLE` : "HEMEN SEPETE EKLE"}
+          {tukendi 
+            ? "STOKTA YOK" 
+            : sepettekiMaks 
+              ? "MAKSİMUM STOK SEPETTE" 
+              : sepetteAdet > 0 
+                ? `SEPETTE (${sepetteAdet}) · +1 EKLE` 
+                : "HEMEN SEPETE EKLE"}
         </button>
       </div>
     </article>
@@ -351,13 +367,29 @@ export default function Home() {
   }
 
   function sepeteEkle(id: string) {
-    setSepet((onceki) => ({ ...onceki, [id]: (onceki[id] ?? 0) + 1 }));
-    const yeniAdet = (sepet[id] ?? 0) + 1;
-    bildirimGoster(yeniAdet > 1 ? `Adet ${yeniAdet} olarak güncellendi.` : "Ürün sepete eklendi.");
+    const urun = urunler.find((u) => u.id === id);
+    if (!urun) return;
+
+    const mevcutAdet = sepet[id] ?? 0;
+    if (mevcutAdet >= urun.stok) {
+      bildirimGoster("Stok sınırına ulaşıldı. Daha fazla eklenemez.");
+      return;
+    }
+
+    setSepet((onceki) => ({ ...onceki, [id]: mevcutAdet + 1 }));
+    bildirimGoster(mevcutAdet > 0 ? `Adet ${mevcutAdet + 1} olarak güncellendi.` : "Ürün sepete eklendi.");
   }
 
   function adetArttir(id: string) {
-    setSepet((onceki) => ({ ...onceki, [id]: (onceki[id] ?? 0) + 1 }));
+    const urun = urunler.find((u) => u.id === id);
+    if (!urun) return;
+
+    const mevcutAdet = sepet[id] ?? 0;
+    if (mevcutAdet >= urun.stok) {
+      bildirimGoster("Stok sınırına ulaşıldı.");
+      return;
+    }
+    setSepet((onceki) => ({ ...onceki, [id]: mevcutAdet + 1 }));
   }
 
   function adetAzalt(id: string) {
@@ -388,16 +420,31 @@ export default function Home() {
 
   function favorileriSepeteEkle() {
     if (favoriler.length === 0) return;
+    
+    let eklenen = 0;
+    let stokHatasi = false;
+
     setSepet((onceki) => {
       const yeni = { ...onceki };
       favoriler.forEach((id) => {
-        yeni[id] = (yeni[id] ?? 0) + 1;
+        const urun = urunler.find(u => u.id === id);
+        if (urun && urun.stok > (yeni[id] ?? 0)) {
+          yeni[id] = (yeni[id] ?? 0) + 1;
+          eklenen++;
+        } else if (urun) {
+          stokHatasi = true;
+        }
       });
       return yeni;
     });
-    bildirimGoster(`${favoriler.length} favori ürün sepete eklendi.`);
-    setFavorilerAcik(false);
-    setSepetAcik(true);
+
+    if (eklenen > 0) {
+      bildirimGoster(`${eklenen} favori ürün sepete eklendi.${stokHatasi ? " (Bazı ürünlerde stok yetersiz)" : ""}`);
+      setFavorilerAcik(false);
+      setSepetAcik(true);
+    } else {
+      bildirimGoster("Stokta ürün kalmadığı için sepete eklenemedi.");
+    }
   }
 
   const kategoriFiltreleri = useMemo(
@@ -766,6 +813,39 @@ export default function Home() {
           border-color: rgba(168, 138, 86, 0.3);
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 28px 65px rgba(30, 30, 30, 0.1);
         }
+        
+        /* TÜKENDİ GÖRÜNÜMÜ */
+        .tukendi-kart .urun-gorsel-img, 
+        .tukendi-kart .urun-sembol {
+          opacity: 0.4;
+          filter: grayscale(1);
+        }
+        .tukendi-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 5;
+          display: grid;
+          place-items: center;
+          pointer-events: none;
+        }
+        .tukendi-overlay span {
+          background: rgba(20, 20, 20, 0.85);
+          color: #fff;
+          padding: 8px 16px;
+          border-radius: 50px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          transform: rotate(-5deg);
+        }
+        .hizli-sepet-btn.tukendi-btn {
+          background: #d1d1d1 !important;
+          border-color: #d1d1d1 !important;
+          color: #fff !important;
+          cursor: not-allowed;
+          transform: none !important;
+        }
+
         .urun-gorsel {
           position: relative;
           display: grid;
@@ -813,8 +893,8 @@ export default function Home() {
           filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.12));
           transition: transform 0.35s ease;
         }
-        .urun-kart:hover .urun-sembol,
-        .urun-kart:hover .urun-gorsel-img {
+        .urun-kart:hover:not(.tukendi-kart) .urun-sembol,
+        .urun-kart:hover:not(.tukendi-kart) .urun-gorsel-img {
           transform: scale(1.06) translateY(-3px);
         }
         .urun-etiket {
@@ -842,7 +922,7 @@ export default function Home() {
           position: absolute;
           top: 12px;
           right: 12px;
-          z-index: 4;
+          z-index: 6;
           display: grid;
           place-items: center;
           width: 40px;
@@ -911,7 +991,7 @@ export default function Home() {
           letter-spacing: 1px;
           transition: background 0.2s, transform 0.2s;
         }
-        .hizli-sepet-btn:hover {
+        .hizli-sepet-btn:hover:not(:disabled) {
           background: var(--gold-dark);
           border-color: var(--gold-dark);
           transform: translateY(-2px);
@@ -921,10 +1001,9 @@ export default function Home() {
           border-color: rgba(168, 138, 86, 0.3) !important;
           color: var(--gold-dark) !important;
         }
-        .hizli-sepet-btn.sepette:hover {
-          background: rgba(168, 138, 86, 0.25) !important;
-          color: var(--gold-dark) !important;
-          transform: none;
+        .hizli-sepet-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.8;
         }
         .bos-sonuc {
           grid-column: 1 / -1;
@@ -1191,7 +1270,8 @@ export default function Home() {
           border-radius: 50%;
           transition: background 0.2s ease, color 0.2s ease;
         }
-        .adet-kontrol button:hover { background: rgba(168, 138, 86, 0.14); color: var(--gold-dark) !important; }
+        .adet-kontrol button:hover:not(:disabled) { background: rgba(168, 138, 86, 0.14); color: var(--gold-dark) !important; }
+        .adet-kontrol button:disabled { color: #ccc !important; cursor: not-allowed; }
         .adet-kontrol span { min-width: 24px; text-align: center; font-size: 12px; font-weight: 700; color: #171717; }
         .sil-buton { border: 0; background: transparent; color: #b36c6c !important; font-size: 11px; font-weight: 700; padding: 0; letter-spacing: 0.3px; }
         .sil-buton:hover { text-decoration: underline; }
@@ -1625,28 +1705,32 @@ export default function Home() {
                       Sepetin şimdilik boş.
                     </div>
                   ) : (
-                    sepettekiUrunler.map(({ urun, adet }) => (
-                      <div className="sepet-satiri" key={urun.id}>
-                        <div className="sepet-sembol" aria-hidden="true">
-                          {urun.gorselUrl ? <img src={urun.gorselUrl} alt="" /> : urun.sembol}
-                        </div>
-                        <div className="sepet-icerik">
-                          <div className="sepet-ust">
-                            <h3>{urun.isim}</h3>
-                            <button type="button" className="sil-buton" onClick={() => sepettenSil(urun.id)}>Sil</button>
+                    sepettekiUrunler.map(({ urun, adet }) => {
+                      const stokLimiti = adet >= urun.stok;
+                      return (
+                        <div className="sepet-satiri" key={urun.id}>
+                          <div className="sepet-sembol" aria-hidden="true">
+                            {urun.gorselUrl ? <img src={urun.gorselUrl} alt="" /> : urun.sembol}
                           </div>
-                          <p className="sepet-birim-fiyat">{PARA(urun.fiyat)} / adet</p>
-                          <div className="sepet-alt">
-                            <div className="adet-kontrol" role="group">
-                              <button type="button" onClick={() => adetAzalt(urun.id)}>−</button>
-                              <span aria-live="polite">{adet}</span>
-                              <button type="button" onClick={() => adetArttir(urun.id)}>+</button>
+                          <div className="sepet-icerik">
+                            <div className="sepet-ust">
+                              <h3>{urun.isim}</h3>
+                              <button type="button" className="sil-buton" onClick={() => sepettenSil(urun.id)}>Sil</button>
                             </div>
-                            <strong className="sepet-satir-toplam">{PARA(urun.fiyat * adet)}</strong>
+                            <p className="sepet-birim-fiyat">{PARA(urun.fiyat)} / adet</p>
+                            <div className="sepet-alt">
+                              <div className="adet-kontrol" role="group">
+                                <button type="button" onClick={() => adetAzalt(urun.id)}>−</button>
+                                <span aria-live="polite">{adet}</span>
+                                <button type="button" disabled={stokLimiti} onClick={() => adetArttir(urun.id)}>+</button>
+                              </div>
+                              <strong className="sepet-satir-toplam">{PARA(urun.fiyat * adet)}</strong>
+                            </div>
+                            {stokLimiti && <div style={{ fontSize: 10, color: "#c62828", marginTop: 4 }}>Maksimum stok adedine ulaşıldı.</div>}
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -1675,9 +1759,12 @@ export default function Home() {
             <button ref={detayKapatRef} type="button" className="detay-kapat" aria-label="Ürün detayını kapat" onClick={() => setSeciliUrun(null)}>×</button>
             <div className="detay-gorsel">
               {seciliUrun.gorselUrl ? (
-                <img className="detay-gorsel-img" src={seciliUrun.gorselUrl} alt={seciliUrun.isim} />
+                <img className="detay-gorsel-img" src={seciliUrun.gorselUrl} alt={seciliUrun.isim} style={{ opacity: seciliUrun.stok <= 0 ? 0.4 : 1, filter: seciliUrun.stok <= 0 ? "grayscale(1)" : "none" }} />
               ) : (
-                <span className="detay-sembol" aria-hidden="true">{seciliUrun.sembol}</span>
+                <span className="detay-sembol" aria-hidden="true" style={{ opacity: seciliUrun.stok <= 0 ? 0.4 : 1, filter: seciliUrun.stok <= 0 ? "grayscale(1)" : "none" }}>{seciliUrun.sembol}</span>
+              )}
+              {seciliUrun.stok <= 0 && (
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "rgba(20,20,20,0.85)", color: "#fff", padding: "8px 16px", borderRadius: 50, fontSize: 12, fontWeight: 700, letterSpacing: 2, zIndex: 2 }}>TÜKENDİ</div>
               )}
             </div>
             <div className="detay-icerik">
@@ -1686,8 +1773,15 @@ export default function Home() {
               <p>{seciliUrun.aciklama}</p>
               <strong className="detay-fiyat">{PARA(seciliUrun.fiyat)}</strong>
 
-              <button type="button" className="buton" style={{ width: "100%", marginBottom: 10 }} onClick={() => sepeteEkle(seciliUrun.id)}>
-                {sepet[seciliUrun.id] ? `SEPETE EKLE (+1) · SEPETTE ${sepet[seciliUrun.id]} ADET` : "SEPETE EKLE"} <span aria-hidden="true">↗</span>
+              <button type="button" disabled={seciliUrun.stok <= 0 || (sepet[seciliUrun.id] ?? 0) >= seciliUrun.stok} className={`buton ${seciliUrun.stok <= 0 ? "tukendi-btn" : ""}`} style={{ width: "100%", marginBottom: 10 }} onClick={() => sepeteEkle(seciliUrun.id)}>
+                {seciliUrun.stok <= 0 
+                  ? "STOKTA YOK" 
+                  : (sepet[seciliUrun.id] ?? 0) >= seciliUrun.stok 
+                    ? "MAKSİMUM STOK SEPETTE" 
+                    : sepet[seciliUrun.id] 
+                      ? `SEPETE EKLE (+1) · SEPETTE ${sepet[seciliUrun.id]} ADET` 
+                      : "SEPETE EKLE"} 
+                <span aria-hidden="true">↗</span>
               </button>
 
               <button type="button" className="buton buton-ikincil" style={{ width: "100%" }} onClick={() => favoriDegistir(seciliUrun.id)}>
