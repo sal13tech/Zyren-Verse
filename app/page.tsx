@@ -38,6 +38,11 @@ const FAVORI_ANAHTARI = "zyren-favoriler";
 const SEPET_ANAHTARI = "zyren-sepet";
 const HEPSI = "hepsi";
 
+// 👇 BURAYA KENDİ TELEFON NUMARANI VE E-POSTANI YAZ 👇
+const TELEFON_NUMARASI = "905052645542"; // Başında 90 olacak şekilde, boşluksuz
+const EPOSTA_ADRESI = "ikalayci963@gmail.com"; 
+// 👆 BURAYA KENDİ TELEFON NUMARANI VE E-POSTANI YAZ 👆
+
 type Sepet = Record<string, number>;
 
 function stringDizisiOku(anahtar: string): string[] {
@@ -204,6 +209,7 @@ export default function Home() {
   const [menuAcik, setMenuAcik] = useState(false);
   const [favorilerAcik, setFavorilerAcik] = useState(false);
   const [sepetAcik, setSepetAcik] = useState(false);
+  const [iletisimAcik, setIletisimAcik] = useState(false); // YENİ
 
   const [seciliUrun, setSeciliUrun] = useState<Urun | null>(null);
   const [bildirim, setBildirim] = useState("");
@@ -213,7 +219,7 @@ export default function Home() {
   const detayKapatRef = useRef<HTMLButtonElement>(null);
 
   const herhangiBirPanelAcik =
-    menuAcik || favorilerAcik || sepetAcik || Boolean(seciliUrun);
+    menuAcik || favorilerAcik || sepetAcik || iletisimAcik || Boolean(seciliUrun);
 
   useEffect(() => {
     setFavoriler(stringDizisiOku(FAVORI_ANAHTARI));
@@ -254,6 +260,7 @@ export default function Home() {
       setMenuAcik(false);
       setFavorilerAcik(false);
       setSepetAcik(false);
+      setIletisimAcik(false);
       setSeciliUrun(null);
     }
     window.addEventListener("keydown", escapeIleKapat);
@@ -328,6 +335,7 @@ export default function Home() {
     setMenuAcik(false);
     setFavorilerAcik(false);
     setSepetAcik(false);
+    setIletisimAcik(false);
   }
 
   function sayfayaGit(yeniSayfa: "ana" | "urunler") {
@@ -814,7 +822,6 @@ export default function Home() {
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 28px 65px rgba(30, 30, 30, 0.1);
         }
         
-        /* TÜKENDİ GÖRÜNÜMÜ */
         .tukendi-kart .urun-gorsel-img, 
         .tukendi-kart .urun-sembol {
           opacity: 0.4;
@@ -1312,6 +1319,8 @@ export default function Home() {
           border: none;
         }
         .favori-hepsini-ekle:hover { background: var(--gold-dark); }
+
+        /* MODAL ORTAK */
         .detay-arka {
           position: fixed;
           inset: 0;
@@ -1325,6 +1334,8 @@ export default function Home() {
           animation: detayArkaAc 0.2s ease;
         }
         @keyframes detayArkaAc { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ÜRÜN DETAY */
         .detay-kart {
           position: relative;
           display: grid;
@@ -1422,6 +1433,51 @@ export default function Home() {
         .benzer-sembol img { width: 30px; height: 30px; object-fit: contain; }
         .benzer-isim { font-size: 11px; font-weight: 600; white-space: nowrap; }
         .benzer-fiyat { font-size: 10px; color: var(--gold-dark); font-weight: 700;}
+
+        /* İLETİŞİM MODALI (YENİ) */
+        .iletisim-kart {
+          width: 100%;
+          max-width: 400px;
+          padding: 40px 30px;
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 30px;
+          background: rgba(255, 255, 255, 0.95);
+          box-shadow: 0 40px 100px rgba(20, 20, 20, 0.18);
+          backdrop-filter: blur(35px);
+          text-align: center;
+          position: relative;
+          animation: detayAc 0.28s ease;
+        }
+        .iletisim-kart h3 {
+          margin: 0 0 10px;
+          font-family: var(--font-cormorant), Georgia, serif;
+          font-size: 32px;
+          font-weight: 500;
+        }
+        .iletisim-kart p {
+          color: #777;
+          font-size: 13px;
+          line-height: 1.6;
+          margin: 0 0 30px;
+        }
+        .iletisim-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          width: 100%;
+          padding: 16px;
+          border-radius: 50px;
+          font-size: 14px;
+          font-weight: 700;
+          text-decoration: none;
+          margin-bottom: 12px;
+          transition: transform 0.2s;
+        }
+        .iletisim-btn:hover { transform: translateY(-2px); }
+        .iletisim-btn.wa { background: #25D366; color: #fff !important; }
+        .iletisim-btn.mail { background: #171717; color: #fff !important; }
+        
         .bildirim {
           position: fixed;
           right: 22px;
@@ -1498,6 +1554,7 @@ export default function Home() {
           .detay-icerik h2 { font-size: 34px; }
           .detay-kapat { position: fixed; top: 15px; right: 15px; background: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
           .bildirim { right: 16px; bottom: 16px; left: 16px; text-align: center; padding: 14px 20px; font-size: 13px; }
+          .iletisim-kart { padding: 30px 20px; border-radius: 20px; }
         }
       `}</style>
 
@@ -1629,7 +1686,7 @@ export default function Home() {
           <button type="button" onClick={() => sayfayaGit("ana")}>Ana Sayfa</button>
           <button type="button" onClick={() => sayfayaGit("urunler")}>Tüm Ürünler</button>
           <button type="button" onClick={() => bolumeGit("hikayemiz")}>Hikâyemiz</button>
-          <button type="button" onClick={() => bildirimGoster("Bu demo sürümünde iletişim formu henüz aktif değil.")}>İletişim</button>
+          <button type="button" onClick={() => setIletisimAcik(true)}>İletişim</button>
         </div>
 
         <div className="telif">
@@ -1663,7 +1720,7 @@ export default function Home() {
 
                 <div className="menu-grup-etiket">ZYREN VERSÉ</div>
                 <button type="button" className="menu-baglantisi" onClick={() => bolumeGit("hikayemiz")}>Hikâyemiz <span aria-hidden="true">↗</span></button>
-                <button type="button" className="menu-baglantisi" onClick={() => bolumeGit("iletisim")}>İletişim <span aria-hidden="true">↗</span></button>
+                <button type="button" className="menu-baglantisi" onClick={() => setIletisimAcik(true)}>İletişim <span aria-hidden="true">↗</span></button>
               </div>
             )}
 
@@ -1806,6 +1863,35 @@ export default function Home() {
               )}
             </div>
           </article>
+        </div>
+      )}
+
+      {/* İLETİŞİM MODALI (YENİ) */}
+      {iletisimAcik && (
+        <div className="detay-arka" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setIletisimAcik(false); }}>
+          <div className="iletisim-kart">
+            <button type="button" className="detay-kapat" aria-label="Kapat" onClick={() => setIletisimAcik(false)}>×</button>
+            <h3>Bize Ulaşın</h3>
+            <p>Sorularınız, özel tasarım talepleriniz veya iş birlikleri için bize aşağıdaki kanallardan ulaşabilirsiniz.</p>
+            
+            {/* WHATSAPP BUTONU */}
+            <a 
+              href={`https://wa.me/${TELEFON_NUMARASI}?text=Merhaba,%20web%20sitenizden%20ulaşıyorum.`} 
+              target="_blank" 
+              rel="noreferrer"
+              className="iletisim-btn wa"
+            >
+              <span>WhatsApp İle Yaz</span>
+            </a>
+
+            {/* E-POSTA BUTONU */}
+            <a 
+              href={`mailto:${EPOSTA_ADRESI}`}
+              className="iletisim-btn mail"
+            >
+              <span>E-posta Gönder</span>
+            </a>
+          </div>
         </div>
       )}
 
